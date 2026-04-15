@@ -1,0 +1,9 @@
+boto3
+opensearch-py
+requests-aws4auth
+requests
+uv
+strands-agents
+strands-agents-tools
+bedrock-agentcore
+bedrock-agentcore-starter-toolkit

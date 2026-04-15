@@ -1,0 +1,450 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Infrastructure for AI Shopping Agent blog post.
+  Creates a VPC with public/private subnets, NAT gateway, an EC2 instance
+  bootstrapped via cfn-init, and all required IAM roles.
+
+# ============================================================================
+# Parameters
+# ============================================================================
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t3.medium
+    Description: EC2 instance type
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+      - t3.large
+      - m5.large
+
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Description: Amazon Linux 2023 AMI (auto-resolved via SSM parameter)
+
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: CIDR block for the VPC
+
+  PublicSubnetCidr:
+    Type: String
+    Default: 10.0.0.0/24
+    Description: CIDR block for the public subnet (NAT gateway)
+
+  PrivateSubnetCidr:
+    Type: String
+    Default: 10.0.1.0/24
+    Description: CIDR block for the private subnet (EC2 instance)
+
+  OpenSearchDomainName:
+    Type: String
+    Description: Name of your OpenSearch Service domain (not the full endpoint)
+    MinLength: 1
+
+# ============================================================================
+# Resources
+# ============================================================================
+Resources:
+
+  # --------------------------------------------------------------------------
+  # VPC
+  # --------------------------------------------------------------------------
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-vpc
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-igw
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # --------------------------------------------------------------------------
+  # Public Subnet (for NAT Gateway)
+  # --------------------------------------------------------------------------
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnetCidr
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-public-subnet
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-public-rt
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # --------------------------------------------------------------------------
+  # NAT Gateway
+  # --------------------------------------------------------------------------
+  NatEip:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-nat-eip
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEip.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-nat
+
+  # --------------------------------------------------------------------------
+  # Private Subnet (for EC2 instance)
+  # --------------------------------------------------------------------------
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnetCidr
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-private-subnet
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-private-rt
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
+
+  # --------------------------------------------------------------------------
+  # Security Group
+  # --------------------------------------------------------------------------
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the EC2 instance
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ec2-sg
+
+  # --------------------------------------------------------------------------
+  # IAM Role: OpenSearchBedrockEmbeddingRole
+  # --------------------------------------------------------------------------
+  OpenSearchBedrockEmbeddingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: OpenSearchBedrockEmbeddingRole
+      Description: Allows OpenSearch Service to invoke Bedrock Nova Multimodal Embeddings model
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Statement1
+            Effect: Allow
+            Principal:
+              Service: opensearchservice.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: OpenSearchBedrockEmbeddingPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: Statement1
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeAgent
+                  - bedrock:InvokeModel
+                Resource:
+                  - !Sub arn:aws:bedrock:${AWS::Region}::foundation-model/*
+
+  # --------------------------------------------------------------------------
+  # IAM Role: EC2 Instance Role
+  # --------------------------------------------------------------------------
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-EC2Role
+      Description: EC2 instance role with all permissions to run the shopping agent scripts
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonBedrockLimitedAccess
+      Policies:
+        - PolicyName: PassOpenSearchBedrockEmbeddingRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt OpenSearchBedrockEmbeddingRole.Arn
+
+        - PolicyName: AgentCoreAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: BedrockAgentCoreServiceAccess
+                Effect: Allow
+                Action:
+                  - bedrock-agentcore:*
+                Resource: '*'
+              - Sid: ECRAuthorizationToken
+                Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+              - Sid: ECRRepositoryAccess
+                Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:PutImage
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:DescribeRepositories
+                  - ecr:CreateRepository
+                  - ecr:ListImages
+                  - ecr:DescribeImages
+                Resource:
+                  - !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/bedrock-agentcore-*
+              - Sid: CodeBuildProjectAccess
+                Effect: Allow
+                Action:
+                  - codebuild:CreateProject
+                  - codebuild:UpdateProject
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                  - codebuild:DeleteProject
+                Resource:
+                  - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/bedrock-agentcore-*
+              - Sid: IAMRoleManagement
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:AttachRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:PassRole
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:CreateServiceLinkedRole
+                Resource:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/AmazonBedrockAgentCoreSDKRuntime-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/AmazonBedrockAgentCoreSDKCodeBuild-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/runtime-identity.bedrock-agentcore.amazonaws.com/AWSServiceRoleForBedrockAgentCoreRuntimeIdentity
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:PutResourcePolicy
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/*
+              - Sid: CloudWatchLogsResourcePolicy
+                Effect: Allow
+                Action:
+                  - logs:PutResourcePolicy
+                Resource: '*'
+              - Sid: S3BucketManagement
+                Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:PutBucketPolicy
+                  - s3:PutBucketVersioning
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:PutLifecycleConfiguration
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:aws:s3:::bedrock-agentcore-codebuild-sources-${AWS::AccountId}-*
+                  - !Sub arn:aws:s3:::bedrock-agentcore-codebuild-sources-${AWS::AccountId}-*/*
+
+        - PolicyName: OpenSearchAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: OpenSearchHTTPAccess
+                Effect: Allow
+                Action:
+                  - es:ESHttpGet
+                  - es:ESHttpPost
+                  - es:ESHttpPut
+                Resource:
+                  - !Sub arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${OpenSearchDomainName}/*
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2InstanceRole
+
+  # --------------------------------------------------------------------------
+  # EC2 Instance with cfn-init and cfn-signal
+  # --------------------------------------------------------------------------
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    DependsOn: PrivateRoute
+    CreationPolicy:
+      ResourceSignal:
+        Count: 1
+        Timeout: PT15M
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          default:
+            - install_packages
+            - setup_workspace
+            - install_pip_deps
+        install_packages:
+          packages:
+            yum:
+              python3.11: []
+              python3.11-pip: []
+              git: []
+        setup_workspace:
+          commands:
+            01_create_dir:
+              command: mkdir -p /home/ec2-user/shopping-agent
+          files:
+            /home/ec2-user/shopping-agent/requirements.txt:
+              content: |
+                boto3
+                opensearch-py
+                requests-aws4auth
+                requests
+                uv
+                strands-agents
+                strands-agents-tools
+                bedrock-agentcore<=0.1.5
+                bedrock-agentcore-starter-toolkit==0.1.14
+              mode: '000644'
+              owner: ec2-user
+              group: ec2-user
+        install_pip_deps:
+          commands:
+            01_install_requirements:
+              command: python3.11 -m pip install -r /home/ec2-user/shopping-agent/requirements.txt
+            02_set_ownership:
+              command: chown -R ec2-user:ec2-user /home/ec2-user/shopping-agent
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      SubnetId: !Ref PrivateSubnet
+      SecurityGroupIds:
+        - !Ref EC2SecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-agent-instance
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          /opt/aws/bin/cfn-init -v \
+            --stack ${AWS::StackName} \
+            --resource EC2Instance \
+            --configsets default \
+            --region ${AWS::Region}
+
+          /opt/aws/bin/cfn-signal -e $? \
+            --stack ${AWS::StackName} \
+            --resource EC2Instance \
+            --region ${AWS::Region}
+
+# ============================================================================
+# Outputs
+# ============================================================================
+Outputs:
+  InstanceId:
+    Description: EC2 Instance ID — connect via SSM Session Manager
+    Value: !Ref EC2Instance
+
+  SSMConnectCommand:
+    Description: AWS CLI command to connect to the instance
+    Value: !Sub aws ssm start-session --target ${EC2Instance} --region ${AWS::Region}
+
+  EC2RoleName:
+    Description: >
+      IAM role name for the EC2 instance. Map this as a backend role for
+      ml_full_access and agent-permissions in OpenSearch Dashboards.
+    Value: !Ref EC2InstanceRole
+
+  EC2RoleArn:
+    Description: IAM role ARN for the EC2 instance
+    Value: !GetAtt EC2InstanceRole.Arn
+
+  OpenSearchBedrockEmbeddingRoleArn:
+    Description: ARN of the OpenSearch Bedrock Embedding role
+    Value: !GetAtt OpenSearchBedrockEmbeddingRole.Arn
+
+  AgentCoreExecutionRoleArn:
+    Description: >
+      After running agentcore.py, map this role as a backend role for
+      agent-permissions in OpenSearch Dashboards.
+    Value: !Sub arn:aws:iam::${AWS::AccountId}:role/AmazonBedrockAgentCoreSDKRuntime-${AWS::Region}-custom
