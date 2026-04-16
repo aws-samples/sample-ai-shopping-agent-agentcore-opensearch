@@ -29,7 +29,7 @@ Amazon Nova Multimodal Embeddings for vector search and Anthropic Claude for res
 | `cloudformation.yaml` | CloudFormation template — VPC, NAT gateway, EC2 instance, and all IAM roles/policies |
 | `requirements.txt` | Python dependencies |
 | `create_connector.py` | Creates ML connector between OpenSearch and Bedrock Nova embeddings |
-| `opensearch_setup.md` | OpenSearch Dashboards Dev Tools commands (Steps 3-6) |
+| `opensearch_setup.md` | OpenSearch Dashboards Dev Tools commands |
 | `search_agent.py` | Strands Agent with product search tool |
 | `agentcore.py` | Deploys the agent to Bedrock AgentCore Runtime |
 
