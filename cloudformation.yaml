@@ -686,6 +686,12 @@ Outputs:
     Description: IAM role ARN for the EC2 instance
     Value: !GetAtt EC2InstanceRole.Arn
 
+  OpenSearchBedrockEmbeddingRoleName:
+    Description: >
+      IAM role name for OpenSearch Bedrock Embedding. Map this as a backend role
+      for ml_full_access in OpenSearch Dashboards (required before ML connector creation).
+    Value: !Ref OpenSearchBedrockEmbeddingRole
+
   OpenSearchBedrockEmbeddingRoleArn:
     Description: ARN of the OpenSearch Bedrock Embedding role
     Value: !GetAtt OpenSearchBedrockEmbeddingRole.Arn

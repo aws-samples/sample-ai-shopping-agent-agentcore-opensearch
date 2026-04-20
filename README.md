@@ -165,30 +165,42 @@ The CloudFormation template creates:
 
 ### 2. Connect to the EC2 Instance and Map OpenSearch Permissions
 
-After the stack completes, map the EC2 instance role as a backend role for `ml_full_access`
-in OpenSearch Dashboards. This is required before running `create_connector.py`:
+After the stack completes, you need to map two roles in OpenSearch Dashboards before proceeding with ML connector creation:
 
-1. Open OpenSearch Dashboards → Security → Roles → **ml_full_access**
-2. Click **Mapped Users** → **Manage Mapping**
-3. Under **Backend roles**, add the EC2 role ARN from the stack outputs:
-   `arn:aws:iam::<ACCOUNT_ID>:role/shopping-agent-EC2Role`
+#### Map Roles in OpenSearch Dashboards
 
-Then connect to the instance via SSM Session Manager. The instance ID is in the stack outputs.
+1. **Map EC2 Instance Role to ml_full_access** (required for ML connector creation):
+   - Open OpenSearch Dashboards → Security → Roles → **ml_full_access**
+   - Click **Mapped Users** → **Manage Mapping**
+   - Under **Backend roles**, add the EC2 role ARN from the stack outputs:
+     `arn:aws:iam::<ACCOUNT_ID>:role/shopping-agent-EC2Role`
+
+2. **Map BedrockEmbeddingRole to ml_full_access** (required for OpenSearch to invoke Bedrock):
+   - In the same **ml_full_access** role mapping
+   - Under **Backend roles**, also add the BedrockEmbeddingRole ARN from stack outputs:
+     `arn:aws:iam::<ACCOUNT_ID>:role/OpenSearchBedrockEmbeddingRole-<REGION>`
+
+#### Connect to EC2 Instance
+
+Connect to the instance via SSM Session Manager. The instance ID is in the stack outputs.
 
 ```bash
 aws ssm start-session --target <instance-id> --region <your-region>
 ```
 
-Switch to `ec2-user` and navigate to the working directory:
+Switch to root using sudo:
 
 ```bash
-sudo su - ec2-user
-cd ~/shopping-agent
+sudo su
+# or
+sudo bash
 ```
 
-Python 3.11 and all pip dependencies are already installed. Clone this repo to get the script files:
+Python 3.11 and all pip dependencies are already installed. Create a working directory and clone this repo:
 
 ```bash
+mkdir -p ~/shopping-agent
+cd ~/shopping-agent
 git clone <your-repo-url> .
 ```
 
