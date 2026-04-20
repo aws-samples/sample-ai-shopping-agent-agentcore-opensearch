@@ -18,8 +18,8 @@ import uuid
 # CONFIGURATION
 # ============================================================================
 
-REGION = "us-east-1"
-AGENT_RUNTIME_ARN = "arn:aws:bedrock-agentcore:us-east-1:652650038347:runtime/search_agent_2-wNW7PwFAyg"
+REGION = ""
+AGENT_RUNTIME_ARN = ""
 
 # ============================================================================
 # Page Configuration
