@@ -163,22 +163,7 @@ The CloudFormation template creates:
 > **Alternative:** If you prefer not to use CloudFormation, install Python 3.11 locally,
 > run `pip install -r requirements.txt`, and create the IAM roles manually as described in the blog post.
 
-### 2. Connect to the EC2 Instance and Map OpenSearch Permissions
-
-After the stack completes, you need to map two roles in OpenSearch Dashboards before proceeding with ML connector creation:
-
-#### Map Roles in OpenSearch Dashboards
-
-1. **Map EC2 Instance Role to ml_full_access** (required for ML connector creation):
-   - Open OpenSearch Dashboards → Security → Roles → **ml_full_access**
-   - Click **Mapped Users** → **Manage Mapping**
-   - Under **Backend roles**, add the EC2 role ARN from the stack outputs:
-     `arn:aws:iam::<ACCOUNT_ID>:role/shopping-agent-EC2Role`
-
-2. **Map BedrockEmbeddingRole to ml_full_access** (required for OpenSearch to invoke Bedrock):
-   - In the same **ml_full_access** role mapping
-   - Under **Backend roles**, also add the BedrockEmbeddingRole ARN from stack outputs:
-     `arn:aws:iam::<ACCOUNT_ID>:role/OpenSearchBedrockEmbeddingRole-<REGION>`
+### 2. Connect to the EC2 Instance
 
 #### Connect to EC2 Instance
 
@@ -204,9 +189,16 @@ cd ~/shopping-agent
 git clone <your-repo-url> .
 ```
 
-### 3. Create ML Connector
+### 3. Create ML Connector and Map BedrockEmbeddingRole
 
-Edit `create_connector.py` and set `host`, `region`, and `account_id`, then run:
+First, map the BedrockEmbeddingRole in OpenSearch Dashboards (required for OpenSearch to invoke Bedrock):
+
+1. Open OpenSearch Dashboards → Security → Roles → **ml_full_access**
+2. Click **Mapped Users** → **Manage Mapping**
+3. Under **Backend roles**, add the BedrockEmbeddingRole ARN from stack outputs:
+   `arn:aws:iam::<ACCOUNT_ID>:role/OpenSearchBedrockEmbeddingRole-<REGION>`
+
+Then, edit `create_connector.py` and set `host`, `region`, and `account_id`, then run:
 
 ```bash
 python3.11 create_connector.py
