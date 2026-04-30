@@ -191,12 +191,13 @@ git clone <your-repo-url> .
 
 ### 3. Create ML Connector and Map BedrockEmbeddingRole
 
-First, map the BedrockEmbeddingRole in OpenSearch Dashboards (required for OpenSearch to invoke Bedrock):
+First, map the BedrockEmbeddingRole and EC2 Instance Role in OpenSearch Dashboards (required for OpenSearch to invoke Bedrock):
 
 1. Open OpenSearch Dashboards → Security → Roles → **ml_full_access**
 2. Click **Mapped Users** → **Manage Mapping**
 3. Under **Backend roles**, add the BedrockEmbeddingRole ARN from stack outputs:
-   `arn:aws:iam::<ACCOUNT_ID>:role/OpenSearchBedrockEmbeddingRole-<REGION>`
+   `arn:aws:iam::<ACCOUNT_ID>:role/OpenSearchBedrockEmbeddingRole-<REGION>` and EC2RoleARN from stack outputs:
+   `arn:aws:iam::<ACCOUNT_ID>:role/shopping-agent-EC2Role`
 
 Then, edit `create_connector.py` and set `host`, `region`, and `account_id`, then run:
 
