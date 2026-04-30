@@ -49,7 +49,7 @@ payload = {
     "version": 1,
     "protocol": "aws_sigv4",
     "credential": {
-        "roleArn": f"arn:aws:iam::{account_id}:role/OpenSearchBedrockEmbeddingRole"
+        "roleArn": f"arn:aws:iam::{account_id}:role/OpenSearchBedrockEmbeddingRole-{region}"
     },
     "parameters": {
         "region": region,
