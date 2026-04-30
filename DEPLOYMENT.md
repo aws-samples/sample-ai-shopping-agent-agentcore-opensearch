@@ -176,7 +176,7 @@ Approximate monthly costs (us-east-1):
 - **NAT Gateway**: ~$32/month + data transfer
 - **Application Load Balancer**: ~$16/month + LCU charges
 - **EC2 t3.medium**: ~$30/month (on-demand)
-- **OpenSearch t3.small.search**: ~$24/month
+- **OpenSearch 2x t3.medium.search**: ~$72/month
 - **Bedrock**: Pay per request
 - **AgentCore Runtime**: Pay per invocation
 

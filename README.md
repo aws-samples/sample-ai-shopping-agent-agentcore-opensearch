@@ -39,7 +39,7 @@ This CloudFormation template is **fully multi-region compatible**:
 - ✅ Uses AWS pseudo parameters (`AWS::Region`, `AWS::AccountId`) throughout
 - ✅ AMI selection via SSM parameter (auto-resolves latest Amazon Linux 2023 per region)
 - ✅ No hardcoded region-specific values
-- ✅ Demo-sized instance types (t3/t2) available across regions
+- ✅ Demo-sized OpenSearch instance types (t3.medium) available across regions
 - ✅ Can be deployed to any AWS region that supports the required services
 
 **Supported Regions:** Any region with Bedrock, AgentCore, OpenSearch Service, and standard VPC/EC2 services
@@ -54,7 +54,7 @@ You have two options for the OpenSearch domain:
 
 **Option A: Let CloudFormation create it (Recommended for new deployments)**
 - Set `CreateOpenSearchDomain=true` when deploying the CloudFormation stack
-- The stack will create a small OpenSearch domain (t3.small.search, 10GB) optimized for demo/development
+- The stack will create an OpenSearch domain (2x t3.medium.search nodes, 20GB each) optimized for demo/development
 - Domain creation takes ~15-30 minutes
 - **Note:** This increases stack deployment time significantly
 
@@ -137,8 +137,8 @@ aws cloudformation deploy \
 aws opensearch create-domain \
   --domain-name os-test-domain \
   --engine-version OpenSearch_3.5 \
-  --cluster-config InstanceType=t3.small.search,InstanceCount=1 \
-  --ebs-options EBSEnabled=true,VolumeType=gp3,VolumeSize=10 \
+  --cluster-config InstanceType=t3.medium.search,InstanceCount=2 \
+  --ebs-options EBSEnabled=true,VolumeType=gp3,VolumeSize=20 \
   --access-policies '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"es:*","Resource":"*"}]}' \
   --region <your-region>
 ```
