@@ -110,8 +110,8 @@ aws cloudformation deploy \
   --parameter-overrides \
       CreateOpenSearchDomain=true \
       OpenSearchDomainName=shopping-agent-search \
-      OpenSearchMasterUsername=admin \
-      OpenSearchMasterPassword='YourSecurePassword123!' \
+      OpenSearchAdminUsername=admin \
+      OpenSearchAdminPassword='YourSecurePassword123!' \
   --capabilities CAPABILITY_NAMED_IAM \
   --region <your-region>
 ```

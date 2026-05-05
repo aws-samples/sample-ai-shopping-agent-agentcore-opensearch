@@ -68,20 +68,20 @@ Parameters:
     MaxValue: 100
     Description: EBS volume size in GB per node (only used if creating new domain)
 
-  OpenSearchMasterUsername:
+  OpenSearchAdminUsername:
     Type: String
     Default: admin
-    Description: Master username for OpenSearch Dashboards access (only used if creating new domain)
+    Description: Admin username for OpenSearch Dashboards access (only used if creating new domain)
     MinLength: 1
     MaxLength: 16
     AllowedPattern: ^[a-z][a-z0-9]*$
     ConstraintDescription: Must start with a lowercase letter and contain only lowercase letters and numbers
 
-  OpenSearchMasterPassword:
+  OpenSearchAdminPassword:
     Type: String
     NoEcho: true
     Default: Admin123!
-    Description: Master password for OpenSearch Dashboards (only used if creating new domain, min 8 chars with uppercase, lowercase, number, special char)
+    Description: Admin password for OpenSearch Dashboards (only used if creating new domain, min 8 chars with uppercase, lowercase, number, special char)
     MinLength: 8
     AllowedPattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}
     ConstraintDescription: Must be at least 8 characters with uppercase, lowercase, number, and special character
@@ -127,8 +127,8 @@ Resources:
         Enabled: true
         InternalUserDatabaseEnabled: true
         MasterUserOptions:
-          MasterUserName: !Ref OpenSearchMasterUsername
-          MasterUserPassword: !Ref OpenSearchMasterPassword
+          MasterUserName: !Ref OpenSearchAdminUsername
+          MasterUserPassword: !Ref OpenSearchAdminPassword
       NodeToNodeEncryptionOptions:
         Enabled: true
       EncryptionAtRestOptions:
@@ -598,6 +598,7 @@ Resources:
               command: chown -R ec2-user:ec2-user /home/ec2-user/shopping-agent
     Properties:
       InstanceType: !Ref InstanceType
+      EbsOptimized: true
       ImageId: !Ref LatestAmiId
       IamInstanceProfile: !Ref EC2InstanceProfile
       SubnetId: !Ref PrivateSubnet
@@ -643,18 +644,18 @@ Outputs:
     Description: OpenSearch domain name
     Value: !Ref OpenSearchDomainName
 
-  OpenSearchMasterUsername:
-    Description: OpenSearch master username (if domain created by this stack)
+  OpenSearchAdminUsername:
+    Description: OpenSearch admin username (if domain created by this stack)
     Value: !If
       - ShouldCreateOpenSearchDomain
-      - !Ref OpenSearchMasterUsername
+      - !Ref OpenSearchAdminUsername
       - 'N/A - Using existing domain'
 
-  OpenSearchMasterPassword:
-    Description: OpenSearch master password (if domain created by this stack)
+  OpenSearchAdminPassword:
+    Description: OpenSearch admin password (if domain created by this stack)
     Value: !If
       - ShouldCreateOpenSearchDomain
-      - !Ref OpenSearchMasterPassword
+      - !Ref OpenSearchAdminPassword
       - 'N/A - Using existing domain'
 
   InstanceId:
