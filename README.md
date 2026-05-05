@@ -16,19 +16,19 @@ Amazon Nova Multimodal Embeddings for vector search and Anthropic Claude for res
 
 ### Data Flow
 
-1. User accesses the Streamlit frontend via Application Load Balancer
-2. Streamlit app (running on EC2) sends user queries to AgentCore Runtime
+1. User accesses the shopping assistant frontend via Application Load Balancer
+2. Frontend app (running on EC2) sends user queries to AgentCore Runtime
 3. AgentCore Runtime routes requests to the Strands Retail Agent
 4. Strands Agent processes the task and invokes the `search_products` tool
 5. OpenSearch Service performs semantic search using Amazon Nova embeddings
 6. Strands Agent uses Anthropic Claude to generate natural language responses
-7. Agent response is returned through the Streamlit interface
+7. Agent response is returned through the frontend interface
 
 ### Infrastructure Components
 
 - **VPC**: Private network with public and private subnets across 2 availability zones
-- **Application Load Balancer**: Provides public HTTP access to the Streamlit app
-- **EC2 Instance**: Runs in private subnet, hosts the agent and Streamlit app
+- **Application Load Balancer**: Provides public HTTP access to the frontend
+- **EC2 Instance**: Runs in private subnet, hosts the agent and frontend app
 - **NAT Gateway**: Enables outbound internet access for the EC2 instance
 - **OpenSearch Service**: Vector database for semantic product search (OpenSearch 3.5)
 - **Bedrock AgentCore Runtime**: Serverless agent orchestration service
@@ -86,12 +86,16 @@ You have two options for the OpenSearch domain:
 | File | Description |
 |------|-------------|
 | `cloudformation.yaml` | CloudFormation template — VPC, NAT gateway, EC2 instance, and all IAM roles/policies |
-| `requirements.txt` | Python dependencies |
+| `requirements.txt` | Python dependencies for the agent |
 | `create_connector.py` | Creates ML connector between OpenSearch and Bedrock Nova embeddings |
 | `opensearch_setup.md` | OpenSearch Dashboards Dev Tools commands |
 | `search_agent.py` | Strands Agent with product search tool |
 | `agentcore.py` | Deploys the agent to Bedrock AgentCore Runtime |
-| `app.py` | Streamlit frontend for the shopping agent |
+| `frontend/api.py` | Flask API backend — bridges frontend to AgentCore Runtime |
+| `frontend/index.html` | Shopping assistant HTML interface |
+| `frontend/script.js` | Frontend JavaScript (chat, cart, product display) |
+| `frontend/styles.css` | Frontend styling |
+| `frontend/requirements.txt` | Python dependencies for the frontend (Flask) |
 
 ## Setup Steps
 
@@ -222,17 +226,37 @@ Continue with the remaining commands in `opensearch_setup.md`:
 - Ingest sample data
 - Test with a query
 
-### 6. Configure OpenSearch Security for Agent
+### 6. Configure OpenSearch Security for Agent and Test Locally
 
-In OpenSearch Dashboards Security:
-1. Create a role named `agent-permissions`
-2. Add cluster permissions: `cluster:admin/opensearch/ml/models/get`, `cluster:admin/opensearch/ml/predict`
-3. Add index permissions for `product*`: `search`, `get`
-4. Map the EC2 instance role as a backend role
+#### Create the `agent-permissions` Role
 
-### 7. Test the Agent Locally
+In OpenSearch Dashboards, create a role that allows the agent to search products and invoke the ML model:
+
+1. Go to **Security** → **Roles** → **Create role**
+2. **Role name:** `agent-permissions`
+3. **Cluster permissions** — add:
+   - `cluster:admin/opensearch/ml/models/get`
+   - `cluster:admin/opensearch/ml/predict`
+4. **Index permissions:**
+   - Index patterns: `product*`
+   - Allowed actions: `indices:data/read/search`, `indices:data/read/get`
+5. Click **Create**
+
+#### Map IAM Principals to the Role
+
+1. Click on the newly created `agent-permissions` role
+2. Go to the **Mapped users** tab → **Manage mapping**
+3. Under **Backend roles**, add:
+   - EC2 instance role ARN: `arn:aws:iam::<ACCOUNT_ID>:role/shopping-agent-EC2Role`
+4. Under **Users**, add any IAM users that will run the agent locally for testing:
+   - `arn:aws:iam::<ACCOUNT_ID>:user/<YourIAMUser>`
+5. Click **Map**
+
+#### Test the Agent Locally
 
 Edit `search_agent.py` and set `host`, `region`, and `model_id` in the `search_products` function.
+
+> **Important:** The `model_id` inside `search_products` must be your **OpenSearch embedding model ID** (from Step 4), NOT the Claude/Bedrock LLM model ID used for the agent.
 
 For local testing, uncomment the test line and comment `app.run()`:
 
@@ -255,46 +279,61 @@ Edit `agentcore.py` and set `REGION` and `OPENSEARCH_DOMAIN_NAME`, then run:
 python3.11 agentcore.py
 ```
 
-**Save the Agent Runtime ARN** from the output — you'll need it for the Streamlit app configuration.
+**Save the Agent Runtime ARN** from the output — you'll need it for the frontend configuration.
 
 ### 9. Map AgentCore Execution Role in OpenSearch
 
 In OpenSearch Dashboards, add the AgentCore execution role as a backend role for `agent-permissions`:
 
-```
-arn:aws:iam::<ACCOUNT_ID>:role/AmazonBedrockAgentCoreSDKRuntime-<REGION>-custom
-```
+1. Go to **Security** → **Roles** → **`agent-permissions`** → **Mapped users** → **Manage mapping**
+2. Under **Backend roles**, add:
+   ```
+   arn:aws:iam::<ACCOUNT_ID>:role/AmazonBedrockAgentCoreSDKRuntime-<REGION>-custom
+   ```
+3. Click **Map**
 
-### 10. Run the Streamlit Frontend
+### 10. Run the Frontend
 
-After deploying the agent, configure and run the Streamlit app on the EC2 instance.
+After deploying the agent, configure and run the shopping assistant frontend on the EC2 instance.
+
+#### Install Frontend Dependencies
+
+```bash
+cd ~/shopping-agent/frontend
+pip3.11 install -r requirements.txt
+```
 
 #### Configure the App
 
-Clone this repository and edit `app.py` with your configuration:
+Edit `frontend/api.py` using `nano` (or `vi`):
 
 ```bash
-cd ~/shopping-agent
-git clone <your-repo-url> .
+nano api.py
 ```
 
-Edit `app.py` and set:
+Set the following values (then save with `Ctrl+O`, exit with `Ctrl+X`):
+
 ```python
 REGION = "us-east-1"  # Your AWS region
-AGENT_RUNTIME_ARN = "arn:aws:bedrock-agentcore:..."  # From Step 8 output
+AGENT_RUNTIME_ARN = "arn:aws:bedrock-agentcore:us-east-1:<ACCOUNT_ID>:runtime/<AGENT_NAME>"  # From Step 8 output
 ```
 
-#### Start the Streamlit App
+> **⚠️ Important:** The `AGENT_RUNTIME_ARN` must be the **runtime ARN only** — do NOT include `/runtime-endpoint` or `/runtime-endpoint/DEFAULT` at the end. The correct format is:
+> ```
+> arn:aws:bedrock-agentcore:<REGION>:<ACCOUNT_ID>:runtime/<AGENT_ID>
+> ```
 
-Run the app, binding to all interfaces so the ALB can reach it:
+#### Start the Frontend
+
+Run the app on port 8501 (to match the ALB target group), binding to all interfaces:
 
 ```bash
-streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+python3.11 api.py
 ```
 
 **Tip**: To run in the background, use:
 ```bash
-nohup streamlit run app.py --server.port 8501 --server.address 0.0.0.0 > streamlit.log 2>&1 &
+nohup python3.11 api.py > api.log 2>&1 &
 ```
 
 #### Access the Application
@@ -310,7 +349,16 @@ aws cloudformation describe-stacks \
 
 Open the URL in your browser: `http://<alb-dns-name>`
 
-The Application Load Balancer routes public HTTP traffic to the private EC2 instance running Streamlit.
+The Application Load Balancer routes public HTTP traffic to the private EC2 instance running the frontend.
+
+#### Try These Sample Queries
+
+Once the app is running, try asking:
+- "Search for jackets under $50"
+- "Find men's clothing"
+- "Show me jewelry"
+- "What t-shirts are available?"
+- "Search for a backpack"
 
 **⚠️ SECURITY WARNING**: This is a sample application for demonstration and learning purposes only:
 - **No authentication** - The application is publicly accessible to anyone with the URL
@@ -321,7 +369,7 @@ The Application Load Balancer routes public HTTP traffic to the private EC2 inst
 
 To avoid incurring future charges, delete resources in this order:
 
-1. **Stop the Streamlit app** (if running) on the EC2 instance
+1. **Stop the frontend app** (if running) on the EC2 instance
 2. **Delete the AgentCore Runtime**:
    ```bash
    # Use the bedrock-agentcore CLI or AWS console

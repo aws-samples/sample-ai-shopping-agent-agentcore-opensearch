@@ -36,9 +36,10 @@ def search_products(query: str, size: int = 5):
         # ============================================================================
         # CONFIGURATION - Change these values for your environment
         # ============================================================================
-        host = ''  # CHANGE THIS - Domain endpoint WITHOUT https:// (e.g., search-mydomain-xxx.aos.us-east-1.on.aws)
+        host = ''  # CHANGE THIS - OpenSearch domain endpoint (e.g., 'search-mydomain-xxx.us-east-1.es.amazonaws.com')
         region = ''  # CHANGE THIS - AWS region (e.g., us-east-1)
-        model_id = ''  # CHANGE THIS - Deployed model ID from OpenSearch ML Commons
+        account_id = ''  # CHANGE THIS - Your AWS account ID (e.g., '123456789012')
+
         # ============================================================================
 
         service = 'es'
@@ -68,7 +69,7 @@ def search_products(query: str, size: int = 5):
                 "neural": {
                     "title_vector": {
                         "query_text": query,
-                        "model_id": model_id,
+                        "model_id": "",  # CHANGE THIS - Your OpenSearch embedding model ID (from Step 4)
                         "k": 3
                     }
                 }

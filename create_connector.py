@@ -24,9 +24,9 @@ from requests_aws4auth import AWS4Auth
 # CONFIGURATION - Change these values for your environment
 # ============================================================================
 
-host = ''  # CHANGE THIS - OpenSearch domain endpoint (e.g., https://search-mydomain-xxx.us-east-1.es.amazonaws.com)
-region = ''  # CHANGE THIS - AWS region (e.g., us-east-1)
-account_id = ''  # CHANGE THIS - Your AWS account ID
+host = ''  # CHANGE THIS - OpenSearch domain endpoint (e.g., 'https://search-mydomain-xxx.us-east-1.es.amazonaws.com')
+region = ''  # CHANGE THIS - AWS region (e.g., 'us-east-1')
+account_id = ''  # CHANGE THIS - Your AWS account ID (e.g., '123456789012')
 
 # ============================================================================
 

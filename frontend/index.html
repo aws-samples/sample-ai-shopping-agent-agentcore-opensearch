@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retail Shopping Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-left">
+            <button class="menu-btn" id="menuBtn">☰</button>
+            <span class="nav-title">Shopping Assistant</span>
+        </div>
+        <div class="nav-center">
+            <a href="#" class="nav-link" data-category="electronics">ELECTRONICS</a>
+            <a href="#" class="nav-link" data-category="beauty">BEAUTY & WELLNESS</a>
+            <a href="#" class="nav-link active" data-category="fashion">FASHION</a>
+            <a href="#" class="nav-link" data-category="home">HOME & FURNITURE</a>
+            <a href="#" class="nav-link" data-category="books">BOOKS</a>
+            <a href="#" class="nav-link" data-category="grocery">GROCERY</a>
+            <a href="#" class="nav-link" data-category="jewelry">JEWELRY</a>
+        </div>
+        <div class="nav-right">
+            <button class="icon-btn" id="wishlistBtn">
+                <span class="icon">♡</span>
+                <span class="badge" id="wishlistCount">0</span>
+            </button>
+            <button class="icon-btn" id="cartBtn">
+                <span class="icon">🛒</span>
+                <span class="badge" id="cartCount">0</span>
+            </button>
+            <span class="welcome-text">Welcome!</span>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Left Side: Product Image -->
+        <div class="left-panel">
+            <div class="hero-image">
+                <img src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&h=1200&fit=crop" alt="Fashion Shopping">
+            </div>
+        </div>
+
+        <!-- Right Side: Chat Interface -->
+        <div class="right-panel">
+            <div class="chat-header">
+                <h1>Retail Shopping Assistant</h1>
+            </div>
+
+            <div class="chat-container" id="chatContainer">
+                <!-- Initial Welcome Message -->
+                <div class="message assistant-message">
+                    <div class="message-content">
+                        <p>Hello! 👋 I'm your dedicated Shopping Assistant, here to answer any questions you might have and help you find anything you're looking for. Whether you need electronics, fashion items, home goods, or anything else - I'm here to help! What can I assist you with today?</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <input 
+                        type="text" 
+                        id="userInput" 
+                        placeholder="Type something here..." 
+                        class="message-input"
+                    >
+                    <button class="input-btn send-btn" id="sendBtn">
+                        <span class="icon">➤</span>
+                    </button>
+                    <button class="input-btn clear-btn" id="clearBtn">
+                        <span class="icon">✕</span>
+                    </button>
+                    <button class="input-btn scroll-btn" id="scrollTopBtn">
+                        <span class="icon">↑</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cart Panel (Slide-in) -->
+    <div class="cart-panel" id="cartPanel">
+        <div class="cart-header">
+            <h2>Shopping Cart</h2>
+            <button class="close-btn" id="closeCartBtn">✕</button>
+        </div>
+        <div class="cart-items" id="cartItems">
+            <p class="empty-message">Your cart is empty</p>
+        </div>
+        <div class="cart-footer">
+            <div class="cart-total">
+                <span>Subtotal:</span>
+                <span id="cartTotal">$0.00</span>
+            </div>
+            <button class="checkout-btn">Checkout</button>
+        </div>
+    </div>
+
+    <!-- Wishlist Panel (Slide-in) -->
+    <div class="wishlist-panel" id="wishlistPanel">
+        <div class="wishlist-header">
+            <h2>Wishlist</h2>
+            <button class="close-btn" id="closeWishlistBtn">✕</button>
+        </div>
+        <div class="wishlist-items" id="wishlistItems">
+            <p class="empty-message">Your wishlist is empty</p>
+        </div>
+    </div>
+
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>

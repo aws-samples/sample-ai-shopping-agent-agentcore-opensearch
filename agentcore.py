@@ -28,7 +28,7 @@ REGION = ''  # CHANGE THIS - Your AWS region (e.g., us-east-1)
 AGENT_NAME = 'search_agent'
 
 # OpenSearch Configuration
-OPENSEARCH_DOMAIN_NAME = ''  # CHANGE THIS - Your OpenSearch Service domain name (not the full endpoint)
+OPENSEARCH_DOMAIN_NAME = ''  # CHANGE THIS - Your OpenSearch domain hostname (e.g., 'search-mydomain-xxxxx.us-east-1.es.amazonaws.com')
 
 # ============================================================================
 # AUTO-DETECTED AWS CONFIGURATION
