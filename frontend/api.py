@@ -107,4 +107,4 @@ if __name__ == '__main__':
     print(f"Region: {REGION}")
     print(f"Agent ARN: {AGENT_RUNTIME_ARN}")
     print(f"Open http://localhost:8080 in your browser")
-    app.run(host='0.0.0.0', port=8501, debug=True)
+    app.run(host='0.0.0.0', port=8501, debug=False)
