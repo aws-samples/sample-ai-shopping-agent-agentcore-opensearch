@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  Infrastructure for AI Shopping Agent blog post.
+  Infrastructure for AI Shopping Agent blog post (uksb-c1m594zkj0).
   Creates a VPC with public/private subnets, NAT gateway, an EC2 instance
   bootstrapped via cfn-init, optional OpenSearch Service domain, and all required IAM roles.
 
