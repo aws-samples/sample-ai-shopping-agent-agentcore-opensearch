@@ -500,7 +500,6 @@ Resources:
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: !Sub ${AWS::StackName}-alb
       Type: application
       Scheme: internal
       IpAddressType: ipv4
@@ -516,7 +515,6 @@ Resources:
   ALBTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub ${AWS::StackName}-streamlit-tg
       Port: 8501
       Protocol: HTTP
       VpcId: !Ref VPC
