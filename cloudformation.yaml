@@ -280,14 +280,14 @@ Resources:
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for Application Load Balancer
+      GroupDescription: Security group for internal Application Load Balancer
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          CidrIp: 0.0.0.0/0
-          Description: HTTP access from internet
+          CidrIp: !Ref VpcCidr
+          Description: HTTP access from within VPC (CloudFront VPC Origin)
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-alb-sg
@@ -502,7 +502,7 @@ Resources:
     Properties:
       Name: !Sub ${AWS::StackName}-alb
       Type: application
-      Scheme: internet-facing
+      Scheme: internal
       IpAddressType: ipv4
       Subnets:
         - !Ref PublicSubnet1
@@ -621,17 +621,165 @@ Resources:
             --resource EC2Instance \
             --region ${AWS::Region}
 
+  # --------------------------------------------------------------------------
+  # Cognito User Pool (Authentication)
+  # --------------------------------------------------------------------------
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${AWS::StackName}-user-pool
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: true
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub ${AWS::StackName}-app-client
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+      AllowedOAuthFlows:
+        - implicit
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs:
+        - !Sub https://${CloudFrontDistribution.DomainName}/
+      LogoutURLs:
+        - !Sub https://${CloudFrontDistribution.DomainName}/
+
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub ${AWS::StackName}-${AWS::AccountId}
+      UserPoolId: !Ref CognitoUserPool
+
+  # --------------------------------------------------------------------------
+  # CloudFront VPC Origin (connects CloudFront to internal ALB)
+  # --------------------------------------------------------------------------
+  CloudFrontVpcOrigin:
+    Type: AWS::CloudFront::VpcOrigin
+    Properties:
+      VpcOriginEndpointConfig:
+        Name: !Sub ${AWS::StackName}-vpc-origin
+        Arn: !Ref ApplicationLoadBalancer
+        HTTPPort: 80
+        HTTPSPort: 443
+        OriginProtocolPolicy: http-only
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-vpc-origin
+
+  # --------------------------------------------------------------------------
+  # CloudFront Function (Auth Gate - validates Cognito session)
+  # --------------------------------------------------------------------------
+  CloudFrontAuthFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub ${AWS::StackName}-auth-gate
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Validates Cognito authentication cookie
+        Runtime: cloudfront-js-2.0
+      FunctionCode: !Sub |
+        function handler(event) {
+          var request = event.request;
+          var cookies = request.cookies;
+          var cognitoDomain = '${AWS::StackName}-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com';
+          var clientId = '${CognitoUserPoolClient}';
+          var redirectUri = 'https://' + event.context.distributionDomainName + '/';
+
+          // Check for Cognito ID token cookie
+          var hasToken = false;
+          for (var key in cookies) {
+            if (key.indexOf('CognitoIdentityServiceProvider') !== -1 && key.indexOf('idToken') !== -1) {
+              hasToken = true;
+              break;
+            }
+          }
+
+          if (!hasToken) {
+            var loginUrl = 'https://' + cognitoDomain + '/login?client_id=' + clientId + '&response_type=token&scope=openid+email+profile&redirect_uri=' + encodeURIComponent(redirectUri);
+            return {
+              statusCode: 302,
+              statusDescription: 'Found',
+              headers: {
+                location: { value: loginUrl }
+              }
+            };
+          }
+
+          return request;
+        }
+
+  # --------------------------------------------------------------------------
+  # CloudFront Distribution (HTTPS frontend with auth)
+  # --------------------------------------------------------------------------
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    DependsOn: CloudFrontVpcOrigin
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub ${AWS::StackName} Shopping Assistant (secured with Cognito)
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+            - PUT
+            - POST
+            - PATCH
+            - DELETE
+          TargetOriginId: alb-vpc-origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # CachingDisabled
+          OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3  # AllViewer
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt CloudFrontAuthFunction.FunctionARN
+        Origins:
+          - Id: alb-vpc-origin
+            DomainName: !GetAtt ApplicationLoadBalancer.DNSName
+            VpcOriginConfig:
+              VpcOriginId: !GetAtt CloudFrontVpcOrigin.Id
+              OriginReadTimeout: 60
+              OriginKeepaliveTimeout: 30
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+          MinimumProtocolVersion: TLSv1.2_2021
+
 # ============================================================================
 # Outputs
 # ============================================================================
 Outputs:
-  StreamlitAppURL:
-    Description: URL to access the Streamlit Shopping Assistant (available after app is running)
-    Value: !Sub http://${ApplicationLoadBalancer.DNSName}
+  AppURL:
+    Description: HTTPS URL to access the Shopping Assistant (via CloudFront)
+    Value: !Sub https://${CloudFrontDistribution.DomainName}
 
-  LoadBalancerDNS:
-    Description: Application Load Balancer DNS name
-    Value: !GetAtt ApplicationLoadBalancer.DNSName
+  CloudFrontDistributionId:
+    Description: CloudFront Distribution ID
+    Value: !Ref CloudFrontDistribution
+
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID (create users here)
+    Value: !Ref CognitoUserPool
+
+  CognitoLoginURL:
+    Description: Cognito Hosted UI login URL
+    Value: !Sub https://${AWS::StackName}-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com/login?client_id=${CognitoUserPoolClient}&response_type=token&scope=openid+email+profile&redirect_uri=https://${CloudFrontDistribution.DomainName}/
 
   OpenSearchDomainEndpoint:
     Description: OpenSearch domain endpoint (if created by this stack)
