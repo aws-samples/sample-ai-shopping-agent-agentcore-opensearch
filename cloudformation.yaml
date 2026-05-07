@@ -520,7 +520,7 @@ Resources:
       VpcId: !Ref VPC
       TargetType: instance
       HealthCheckEnabled: true
-      HealthCheckPath: /_stcore/health
+      HealthCheckPath: /
       HealthCheckProtocol: HTTP
       HealthCheckIntervalSeconds: 30
       HealthCheckTimeoutSeconds: 5
