@@ -642,10 +642,14 @@ Resources:
 
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
+    DependsOn: CognitoUserPoolDomain
     Properties:
       ClientName: !Sub ${AWS::StackName}-app-client
       UserPoolId: !Ref CognitoUserPool
       GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
       AllowedOAuthFlows:
         - implicit
       AllowedOAuthFlowsUserPoolClient: true
@@ -656,9 +660,77 @@ Resources:
       SupportedIdentityProviders:
         - COGNITO
       CallbackURLs:
-        - !Sub https://${CloudFrontDistribution.DomainName}/
+        - https://localhost/callback
       LogoutURLs:
-        - !Sub https://${CloudFrontDistribution.DomainName}/
+        - https://localhost/logout
+
+  # Custom Resource to update Cognito callback URL with CloudFront domain
+  UpdateCognitoCallbackFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-update-cognito-callback
+      Runtime: python3.12
+      Handler: index.handler
+      Timeout: 30
+      Role: !GetAtt UpdateCognitoCallbackRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          def handler(event, context):
+              try:
+                  if event['RequestType'] in ['Create', 'Update']:
+                      client = boto3.client('cognito-idp')
+                      user_pool_id = event['ResourceProperties']['UserPoolId']
+                      client_id = event['ResourceProperties']['ClientId']
+                      cf_domain = event['ResourceProperties']['CloudFrontDomain']
+                      callback_url = f'https://{cf_domain}/'
+                      client.update_user_pool_client(
+                          UserPoolId=user_pool_id,
+                          ClientId=client_id,
+                          AllowedOAuthFlows=['implicit'],
+                          AllowedOAuthFlowsUserPoolClient=True,
+                          AllowedOAuthScopes=['openid', 'email', 'profile'],
+                          SupportedIdentityProviders=['COGNITO'],
+                          CallbackURLs=[callback_url],
+                          LogoutURLs=[callback_url]
+                      )
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              except Exception as e:
+                  print(f"Error: {e}")
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
+
+  UpdateCognitoCallbackRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-cognito-callback-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CognitoUpdatePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:UpdateUserPoolClient
+                Resource: !GetAtt CognitoUserPool.Arn
+
+  UpdateCognitoCallback:
+    Type: Custom::UpdateCognitoCallback
+    DependsOn: CloudFrontDistribution
+    Properties:
+      ServiceToken: !GetAtt UpdateCognitoCallbackFunction.Arn
+      UserPoolId: !Ref CognitoUserPool
+      ClientId: !Ref CognitoUserPoolClient
+      CloudFrontDomain: !GetAtt CloudFrontDistribution.DomainName
 
   CognitoUserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
