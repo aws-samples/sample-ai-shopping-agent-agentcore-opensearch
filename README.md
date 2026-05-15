@@ -5,7 +5,7 @@ This repository contains the code for building an AI-powered shopping agent usin
 [Amazon Bedrock AgentCore Runtime](https://docs.aws.amazon.com/bedrock/latest/userguide/agentcore.html),
 and [Amazon OpenSearch Service](https://aws.amazon.com/opensearch-service/).
 
-**⚠️ IMPORTANT**: This is a sample application for demonstration and educational purposes only. It does not include authentication or HTTPS and should not be used in production without proper security configurations.
+**⚠️ IMPORTANT**: This is a sample application for demonstration and educational purposes only. It should not be used in production without additional security hardening.
 
 The agent performs semantic product search using natural language queries, powered by
 Amazon Nova Multimodal Embeddings for vector search and Anthropic Claude for response generation.
@@ -16,8 +16,9 @@ Amazon Nova Multimodal Embeddings for vector search and Anthropic Claude for res
 
 ### Data Flow
 
-1. User accesses the shopping assistant frontend via Application Load Balancer
-2. Frontend app (running on EC2) sends user queries to AgentCore Runtime
+1. User accesses the shopping assistant frontend via CloudFront (HTTPS)
+2. CloudFront routes request via VPC Origin to internal ALB, then to EC2
+3. Frontend app (running on EC2) sends user queries to AgentCore Runtime
 3. AgentCore Runtime routes requests to the Strands Retail Agent
 4. Strands Agent processes the task and invokes the `search_products` tool
 5. OpenSearch Service performs semantic search using Amazon Nova embeddings
@@ -27,7 +28,8 @@ Amazon Nova Multimodal Embeddings for vector search and Anthropic Claude for res
 ### Infrastructure Components
 
 - **VPC**: Private network with public and private subnets across 2 availability zones
-- **Application Load Balancer**: Provides public HTTP access to the frontend
+- **CloudFront Distribution**: Provides HTTPS access with TLS 1.2+ via VPC Origin
+- **Internal Application Load Balancer**: Routes traffic from CloudFront to EC2 (private, no public access)
 - **EC2 Instance**: Runs in private subnet, hosts the agent and frontend app
 - **NAT Gateway**: Enables outbound internet access for the EC2 instance
 - **OpenSearch Service**: Vector database for semantic product search (OpenSearch 3.5)
