@@ -17,8 +17,6 @@ Prerequisites:
 """
 
 from strands import Agent, tool
-from strands_tools import calculator
-import argparse
 import json
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from strands.models import BedrockModel

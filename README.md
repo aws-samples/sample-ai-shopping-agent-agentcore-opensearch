@@ -30,7 +30,7 @@ Amazon Nova Multimodal Embeddings for vector search and Anthropic Claude for res
 - **VPC**: Private network with public and private subnets across 2 availability zones
 - **CloudFront Distribution**: Provides HTTPS access with TLS 1.2+ via VPC Origin
 - **Internal Application Load Balancer**: Routes traffic from CloudFront to EC2 (private, no public access)
-- **EC2 Instance**: Runs in private subnet, hosts the agent and frontend app
+- **EC2 Instance**: Runs in private subnet, hosts the frontend app and deploys agent via AgentCore CLI
 - **NAT Gateway**: Enables outbound internet access for the EC2 instance
 - **OpenSearch Service**: Vector database for semantic product search (OpenSearch 3.5)
 - **Bedrock AgentCore Runtime**: Serverless agent orchestration service
@@ -132,7 +132,7 @@ aws cloudformation deploy \
   --stack-name shopping-agent \
   --parameter-overrides \
       CreateOpenSearchDomain=false \
-      OpenSearchDomainName=os-test-domain \
+      OpenSearchDomainName=<your-existing-domain-name> \
   --capabilities CAPABILITY_NAMED_IAM \
   --region <your-region>
 ```
@@ -213,6 +213,55 @@ python3.11 create_connector.py
 
 Note the `connector_id` from the output.
 
+### 3b. Configure OpenSearch Security for Setup Operations
+
+Before registering models and creating ingest pipelines, the `admin` master user needs additional permissions. OpenSearch fine-grained access control does not grant ML or ingest pipeline permissions by default.
+
+#### Create a Custom Role
+
+1. In OpenSearch Dashboards, go to **Security** → **Roles** → **Create role**
+2. **Name:** `shopping_agent_setup`
+3. **Cluster permissions** — add these individually:
+   ```
+   cluster:admin/ingest/pipeline/put
+   cluster:admin/ingest/pipeline/get
+   cluster:admin/ingest/pipeline/delete
+   cluster:admin/opensearch/ml/create_connector
+   cluster:admin/opensearch/ml/register_model_group
+   cluster:admin/opensearch/ml/register_model
+   cluster:admin/opensearch/ml/deploy_model
+   cluster:admin/opensearch/ml/predict
+   cluster:admin/opensearch/ml/undeploy_model
+   cluster:admin/opensearch/ml/delete_model
+   cluster:admin/opensearch/ml/delete_connector
+   cluster:admin/opensearch/ml/models/get
+   cluster:monitor/nodes/info
+   cluster:monitor/health
+   ```
+4. **Index permissions:**
+   - Index patterns: `*`
+   - Allowed actions — add these individually:
+   ```
+   indices:admin/create
+   indices:admin/delete
+   indices:admin/mapping/put
+   indices:data/write/index
+   indices:data/write/bulk
+   indices:data/write/delete
+   indices:data/read/search
+   indices:data/read/get
+   ```
+5. Click **Create**
+
+#### Map the Admin User to the Role
+
+1. Go to **Security** → **Roles** → **`shopping_agent_setup`** → **Mapped users**
+2. Click **Manage mapping**
+3. Under **Users**, add: `admin`
+4. Click **Map**
+
+> **Note:** Wildcard permissions (e.g., `cluster:admin/opensearch/ml/*`) are not supported in all OpenSearch versions. Use explicit permissions as listed above.
+
 ### 4. Register and Deploy Model (OpenSearch Dashboards)
 
 Follow the commands in `opensearch_setup.md` using OpenSearch Dashboards Dev Tools:
@@ -273,26 +322,52 @@ python3.11 search_agent.py
 
 ### 8. Deploy to AgentCore Runtime
 
-Revert `search_agent.py` for deployment (comment test line, uncomment `app.run()`).
+1. Create the AgentCore project and replace with your search agent:
 
-Edit `agentcore.py` and set `REGION` and `OPENSEARCH_DOMAIN_NAME`, then run:
+   ```bash
+   cd ~/shopping-agent
+   agentcore create --name ShoppingAgent --defaults
+   cd ShoppingAgent
+   cp ../search_agent.py app/ShoppingAgent/main.py
+   ```
 
-```bash
-python3.11 agentcore.py
-```
+2. Add OpenSearch and other dependencies:
 
-**Save the Agent Runtime ARN** from the output — you'll need it for the frontend configuration.
+   ```bash
+   cd app/ShoppingAgent
+   uv add opensearch-py requests-aws4auth boto3
+   cd ../..
+   ```
+
+3. Deploy (takes approximately 5-10 minutes):
+
+   ```bash
+   agentcore deploy
+   ```
+
+4. Verify deployment and note the Runtime ARN:
+
+   ```bash
+   agentcore status
+   ```
+
+   You should see:
+   ```
+   ShoppingAgent: Deployed - Runtime: READY (arn:aws:bedrock-agentcore:<REGION>:<ACCOUNT_ID>:runtime/ShoppingAgent_...)
+   URL: https://bedrock-agentcore.<REGION>.amazonaws.com/runtimes/.../invocations
+   ```
+
+   **Save the Runtime ARN** — you'll need it for the frontend configuration.
 
 ### 9. Map AgentCore Execution Role in OpenSearch
 
-In OpenSearch Dashboards, add the AgentCore execution role as a backend role for `agent-permissions`:
+The AgentCore CLI creates an execution role automatically. Map it in OpenSearch so the deployed agent can query your product index.
 
-1. Go to **Security** → **Roles** → **`agent-permissions`** → **Mapped users** → **Manage mapping**
-2. Under **Backend roles**, add:
-   ```
-   arn:aws:iam::<ACCOUNT_ID>:role/AmazonBedrockAgentCoreSDKRuntime-<REGION>-custom
-   ```
-3. Click **Map**
+1. Find the execution role: **IAM Console** → **Roles** → search for `BedrockAgentCore`
+2. Copy the execution role ARN
+3. Go to **Security** → **Roles** → **`agent-permissions`** → **Mapped users** → **Manage mapping**
+4. Under **Backend roles**, add the execution role ARN from step 1
+5. Click **Map**
 
 ### 10. Run the Frontend
 
@@ -317,7 +392,7 @@ Set the following values (then save with `Ctrl+O`, exit with `Ctrl+X`):
 
 ```python
 REGION = "us-east-1"  # Your AWS region
-AGENT_RUNTIME_ARN = "arn:aws:bedrock-agentcore:us-east-1:<ACCOUNT_ID>:runtime/<AGENT_NAME>"  # From Step 8 output
+AGENT_RUNTIME_ARN = "arn:aws:bedrock-agentcore:us-east-1:<ACCOUNT_ID>:runtime/<AGENT_NAME>"  # From agentcore status output
 ```
 
 > **⚠️ Important:** The `AGENT_RUNTIME_ARN` must be the **runtime ARN only** — do NOT include `/runtime-endpoint` or `/runtime-endpoint/DEFAULT` at the end. The correct format is:

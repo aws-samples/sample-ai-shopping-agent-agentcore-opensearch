@@ -591,6 +591,11 @@ Resources:
               python3.11: []
               python3.11-pip: []
               git: []
+          commands:
+            01_install_nodejs:
+              command: curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - && yum install -y nodejs
+            02_install_agentcore_cli:
+              command: npm install -g @aws/agentcore
         setup_workspace:
           commands:
             01_create_dir:
@@ -602,12 +607,9 @@ Resources:
                 opensearch-py
                 requests-aws4auth
                 requests
-                streamlit
-                uv
                 strands-agents
-                strands-agents-tools
-                bedrock-agentcore<=0.1.5
-                bedrock-agentcore-starter-toolkit==0.1.14
+                bedrock-agentcore
+                uv
               mode: '000644'
               owner: ec2-user
               group: ec2-user
