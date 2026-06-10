@@ -7,6 +7,35 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛍️</text></svg>">
     <link rel="stylesheet" href="styles.css">
     <script src="marked.min.js"></script>
+    <script>
+        // Cognito Auth - redirect to login if no token
+        (function() {
+            const COGNITO_DOMAIN = 'shopping-agent-test-591313757416.auth.us-east-1.amazoncognito.com';
+            const CLIENT_ID = 'm51orqjbpqp5bfb26duqkngbl';
+            const REDIRECT_URI = window.location.origin + '/';
+
+            // Check for token in URL hash (after Cognito redirect)
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            if (params.get('id_token')) {
+                sessionStorage.setItem('id_token', params.get('id_token'));
+                window.history.replaceState({}, '', '/');
+            }
+
+            // If no token, redirect to Cognito login
+            if (!sessionStorage.getItem('id_token')) {
+                const loginUrl = `https://${COGNITO_DOMAIN}/login?client_id=${CLIENT_ID}&response_type=token&scope=openid+email+profile&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
+                window.location.href = loginUrl;
+            }
+
+            // Logout function
+            window.logout = function() {
+                sessionStorage.removeItem('id_token');
+                const logoutUrl = `https://${COGNITO_DOMAIN}/logout?client_id=${CLIENT_ID}&logout_uri=${encodeURIComponent(REDIRECT_URI)}`;
+                window.location.href = logoutUrl;
+            };
+        })();
+    </script>
 </head>
 <body>
     <!-- Navigation Bar -->
@@ -34,6 +63,7 @@
                 <span class="badge" id="cartCount">0</span>
             </button>
             <span class="welcome-text">Welcome!</span>
+            <button onclick="logout()" style="margin-left:10px;padding:4px 12px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;">Logout</button>
         </div>
     </nav>
 

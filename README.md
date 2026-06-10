@@ -29,6 +29,7 @@ Amazon Nova Multimodal Embeddings for vector search and Anthropic Claude for res
 
 - **VPC**: Private network with public and private subnets across 2 availability zones
 - **CloudFront Distribution**: Provides HTTPS access with TLS 1.2+ via VPC Origin
+- **Amazon Cognito**: User authentication with hosted UI login (self-signup disabled)
 - **Internal Application Load Balancer**: Routes traffic from CloudFront to EC2 (private, no public access)
 - **EC2 Instance**: Runs in private subnet, hosts the frontend app and deploys agent via AgentCore CLI
 - **NAT Gateway**: Enables outbound internet access for the EC2 instance
@@ -415,32 +416,44 @@ nohup python3.11 api.py > api.log 2>&1 &
 
 #### Access the Application
 
-Get the Load Balancer URL from CloudFormation stack outputs:
+Get the CloudFront URL from CloudFormation stack outputs:
 
 ```bash
 aws cloudformation describe-stacks \
   --stack-name shopping-agent \
-  --query 'Stacks[0].Outputs[?OutputKey==`StreamlitAppURL`].OutputValue' \
+  --query 'Stacks[0].Outputs[?OutputKey==`AppURL`].OutputValue' \
   --output text
 ```
 
-Open the URL in your browser: `http://<alb-dns-name>`
+Open the URL in your browser: `https://<cloudfront-domain>`
 
-The Application Load Balancer routes public HTTP traffic to the private EC2 instance running the frontend.
+You will be redirected to the **Cognito login page**. Use the credentials created by your administrator.
+
+> **Note:** Users are created via the Cognito console or CLI — self-signup is disabled. To create a user:
+> ```bash
+> aws cognito-idp admin-create-user \
+>   --user-pool-id <POOL_ID> \
+>   --username user@example.com \
+>   --temporary-password "TempPass1!" \
+>   --user-attributes Name=email,Value=user@example.com Name=email_verified,Value=true
+>
+> aws cognito-idp admin-set-user-password \
+>   --user-pool-id <POOL_ID> \
+>   --username user@example.com \
+>   --password "YourPassword1!" \
+>   --permanent
+> ```
 
 #### Try These Sample Queries
 
-Once the app is running, try asking:
+Once logged in, try asking:
 - "Search for jackets under $50"
 - "Find men's clothing"
 - "Show me jewelry"
 - "What t-shirts are available?"
 - "Search for a backpack"
 
-**⚠️ SECURITY WARNING**: This is a sample application for demonstration and learning purposes only:
-- **No authentication** - The application is publicly accessible to anyone with the URL
-- **HTTP only** - Traffic is not encrypted (no HTTPS)
-- **Not for production use** - This is a demo configuration for blog post/tutorial purposes
+![Shopping Assistant Demo](the-website.png)
 
 ## Cleanup
 
@@ -449,7 +462,9 @@ To avoid incurring future charges, delete resources in this order:
 1. **Stop the frontend app** (if running) on the EC2 instance
 2. **Delete the AgentCore Runtime**:
    ```bash
-   # Use the bedrock-agentcore CLI or AWS console
+   cd ShoppingAgent
+   agentcore remove all
+   agentcore deploy
    ```
 3. **Delete the CloudFormation stack**:
    ```bash

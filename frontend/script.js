@@ -214,10 +214,22 @@ function addMessage(text, type) {
             /<a href="(https?:\/\/[^"]+\.(png|jpg|jpeg|gif|webp)[^"]*)"[^>]*>[^<]*<\/a>/gi,
             '<div style="text-align:center;background:#fff;padding:16px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin:12px 0;"><img src="$1" alt="Product" style="max-width:250px;max-height:300px;border-radius:8px;object-fit:contain;"></div>'
         );
+
+        // Convert Unsplash image links to img tags
+        html = html.replace(
+            /<a href="(https?:\/\/images\.unsplash\.com\/photo-[^"]+)"[^>]*>[^<]*<\/a>/gi,
+            '<div style="text-align:center;background:#fff;padding:16px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin:12px 0;"><img src="$1" alt="Product" style="max-width:250px;max-height:300px;border-radius:8px;object-fit:contain;"></div>'
+        );
         
         // Also catch bare image URLs that marked didn't linkify
         html = html.replace(
             /(?<!src="|href=")(https?:\/\/[^\s<"]+\.(png|jpg|jpeg|gif|webp)[^\s<"]*)/gi,
+            '<div style="text-align:center;background:#fff;padding:16px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin:12px 0;"><img src="$1" alt="Product" style="max-width:250px;max-height:300px;border-radius:8px;object-fit:contain;"></div>'
+        );
+
+        // Catch Unsplash image URLs
+        html = html.replace(
+            /(?<!src="|href=")(https?:\/\/images\.unsplash\.com\/photo-[^\s<"]+)/gi,
             '<div style="text-align:center;background:#fff;padding:16px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.08);margin:12px 0;"><img src="$1" alt="Product" style="max-width:250px;max-height:300px;border-radius:8px;object-fit:contain;"></div>'
         );
         
