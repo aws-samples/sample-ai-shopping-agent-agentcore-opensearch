@@ -12,7 +12,7 @@ Amazon Nova Multimodal Embeddings for vector search and Anthropic Claude for res
 
 ## Architecture
 
-![Architecture Diagram](diagram.png)
+![Architecture Diagram](images/diagram.png)
 
 ### Data Flow
 
@@ -453,7 +453,7 @@ Once logged in, try asking:
 - "What t-shirts are available?"
 - "Search for a backpack"
 
-![Shopping Assistant Demo](the-website.png)
+![Shopping Assistant Demo](images/the-website.png)
 
 ## Cleanup
 
