@@ -155,11 +155,13 @@ aws opensearch create-domain \
 The CloudFormation template creates:
 
 - **OpenSearch Service domain** (optional - if `CreateOpenSearchDomain=true`)
-- **VPC** with 2 public subnets (for ALB) and 1 private subnet (for EC2)
-- **Application Load Balancer** in public subnets for secure internet access
+- **VPC** with 2 public subnets (for ALB) and 2 private subnets (for EC2)
+- **CloudFront Distribution** with VPC Origin for HTTPS access
+- **Amazon Cognito User Pool** with hosted UI login (self-signup disabled)
+- **Internal Application Load Balancer** in private subnets
 - **NAT Gateway** for outbound internet connectivity from private subnet
-- **EC2 instance** in private subnet with Python 3.11, git, and all dependencies
-- **Security Groups** configured for ALB → EC2 communication on port 8501
+- **EC2 instance** in private subnet with Python 3.11, Node.js 20, AgentCore CLI, git, and all dependencies
+- **Security Groups** configured for CloudFront VPC Origin → ALB → EC2 on port 8501
 - **EC2 instance role** with permissions for Bedrock, AgentCore, ECR, OpenSearch
 - **OpenSearchBedrockEmbeddingRole** for OpenSearch to invoke Bedrock embeddings
 
