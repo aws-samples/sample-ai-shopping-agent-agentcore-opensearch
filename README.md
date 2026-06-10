@@ -46,6 +46,8 @@ Amazon Nova Multimodal Embeddings for vector search and Anthropic Claude for res
 
 ### 1. Deploy the CloudFormation Stack
 
+**Option A: Create OpenSearch domain automatically (Recommended)**
+
 ```bash
 aws cloudformation deploy \
   --template-file cloudformation.yaml \
@@ -60,6 +62,21 @@ aws cloudformation deploy \
 ```
 
 **⏱️ Deployment Time:** ~20-35 minutes (includes OpenSearch domain creation)
+
+**Option B: Use an existing OpenSearch domain**
+
+If you already have an OpenSearch domain, set `CreateOpenSearchDomain=false` and provide your domain name:
+
+```bash
+aws cloudformation deploy \
+  --template-file cloudformation.yaml \
+  --stack-name shopping-agent \
+  --parameter-overrides \
+      CreateOpenSearchDomain=false \
+      OpenSearchDomainName=<your-existing-domain-name> \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region <your-region>
+```
 
 Once complete, get the stack outputs:
 
@@ -160,19 +177,24 @@ python3.11 create_connector.py
 
 Note the `connector_id` from the output.
 
-### 5. Set Up ML Pipeline (OpenSearch Dashboards)
+### 5. Register and Deploy Model (OpenSearch Dashboards)
 
 Follow the commands in [`opensearch_setup.md`](opensearch_setup.md) using OpenSearch Dashboards **Dev Tools**:
 
-1. Create a model group
-2. Register the model with your `connector_id`
-3. Deploy the model
-4. Create the ingest pipeline
-5. Create the product index
-6. Ingest sample data
-7. Test with a neural search query
+- Create a model group
+- Register the model with your `connector_id`
+- Deploy the model
 
-### 6. Deploy Agent to AgentCore Runtime
+### 6. Create Pipeline, Index, and Ingest Data (OpenSearch Dashboards)
+
+Continue with the remaining commands in [`opensearch_setup.md`](opensearch_setup.md):
+
+- Create the ingest pipeline
+- Create the product index
+- Ingest sample data
+- Test with a neural search query
+
+### 7. Deploy Agent to AgentCore Runtime
 
 ```bash
 cd ~/shopping-agent
@@ -203,7 +225,7 @@ agentcore status
 
 **Save the Runtime ARN** from the output.
 
-### 7. Map AgentCore Execution Role in OpenSearch
+### 8. Map AgentCore Execution Role in OpenSearch
 
 1. Find the execution role: **IAM Console** → **Roles** → search for `BedrockAgentCore`
 2. Copy the role ARN
@@ -211,7 +233,7 @@ agentcore status
 4. Under **Backend roles**, add the execution role ARN
 5. Click **Map**
 
-### 8. Run the Frontend
+### 9. Run the Frontend
 
 ```bash
 cd ~/shopping-agent/frontend
