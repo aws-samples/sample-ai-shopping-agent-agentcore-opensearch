@@ -486,6 +486,10 @@ The CloudFormation stack deletion will automatically remove:
 - NAT Gateway and OpenSearch domain incur the highest costs. Delete promptly when done testing.
 - Stack deletion may take 20-40 minutes if OpenSearch domain was created by CloudFormation
 
+## License
+
+This library is licensed under the MIT-0 License. See the [LICENSE](LICENSE) file.
+
 ## Authors
 
 - Omama Khurshid — GTM Specialist Solutions Architect Analytics, AWS
