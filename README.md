@@ -194,7 +194,30 @@ Continue with the remaining commands in [`opensearch_setup.md`](opensearch_setup
 - Ingest sample data
 - Test with a neural search query
 
-### 7. Deploy Agent to AgentCore Runtime
+### 7. Test Agent Locally and Deploy to AgentCore Runtime
+
+#### Configure the Agent
+
+Edit `search_agent.py` and set `host`, `region`, and `model_id` in the `search_products` function:
+
+- `host` — your OpenSearch domain endpoint (from stack outputs)
+- `region` — your AWS region (e.g., `us-east-1`)
+- `model_id` — your OpenSearch embedding model ID (from Step 5)
+
+> **Important:** The `model_id` inside `search_products` must be your **OpenSearch embedding model ID** (from Step 5), NOT the Claude/Bedrock LLM model ID.
+
+#### Test Locally
+
+```bash
+python3.11 -c "
+from search_agent import strands_agent_bedrock
+strands_agent_bedrock({'prompt': 'Search jacket'})
+"
+```
+
+You should see product results from your OpenSearch index.
+
+#### Deploy to AgentCore
 
 ```bash
 cd ~/shopping-agent
