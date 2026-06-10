@@ -36,75 +36,15 @@ Amazon Nova Multimodal Embeddings for vector search and Anthropic Claude for res
 - **OpenSearch Service**: Vector database for semantic product search (OpenSearch 3.5)
 - **Bedrock AgentCore Runtime**: Serverless agent orchestration service
 
-### Multi-Region Support
-
-This CloudFormation template is **fully multi-region compatible**:
-- ✅ Uses AWS pseudo parameters (`AWS::Region`, `AWS::AccountId`) throughout
-- ✅ AMI selection via SSM parameter (auto-resolves latest Amazon Linux 2023 per region)
-- ✅ No hardcoded region-specific values
-- ✅ Demo-sized OpenSearch instance types (t3.medium) available across regions
-- ✅ Can be deployed to any AWS region that supports the required services
-
-**Supported Regions:** Any region with Bedrock, AgentCore, OpenSearch Service, and standard VPC/EC2 services
-
 ## Prerequisites
 
-### Required Before CloudFormation Deployment
-
-**OpenSearch Service Domain Options:**
-
-You have two options for the OpenSearch domain:
-
-**Option A: Let CloudFormation create it (Recommended for new deployments)**
-- Set `CreateOpenSearchDomain=true` when deploying the CloudFormation stack
-- The stack will create an OpenSearch domain (2x t3.medium.search nodes, 20GB each) optimized for demo/development
-- Domain creation takes ~15-30 minutes
-- **Note:** This increases stack deployment time significantly
-
-**Option B: Use an existing OpenSearch domain**
-- Create your domain manually via AWS Console or CLI (see Step 1 below)
-- Set `CreateOpenSearchDomain=false` (default) and provide your `OpenSearchDomainName`
-- Use this option if you already have a domain or need custom configuration
-
-### Other Prerequisites
-
-2. **AWS account with appropriate permissions for:**
-   - CloudFormation
-   - EC2, VPC, and Application Load Balancer
-   - IAM role creation
-   - Amazon Bedrock (Claude and Nova models)
-   - Amazon Bedrock AgentCore Runtime
-   - Amazon OpenSearch Service
-   - Systems Manager (SSM)
-  - OpenSearch Service 2.13 or later (3.5 recommended)
-
-3. **AWS CLI configured with credentials**
-
-4. **Model Access in Amazon Bedrock:**
-   - Anthropic Claude Haiku 4.5
-   - Amazon Nova Multimodal Embeddings
-
-## Repository Structure
-
-| File | Description |
-|------|-------------|
-| `cloudformation.yaml` | CloudFormation template — VPC, NAT gateway, EC2 instance, and all IAM roles/policies |
-| `requirements.txt` | Python dependencies for the agent |
-| `create_connector.py` | Creates ML connector between OpenSearch and Bedrock Nova embeddings |
-| `opensearch_setup.md` | OpenSearch Dashboards Dev Tools commands |
-| `search_agent.py` | Strands Agent with product search tool |
-| `agentcore.py` | Deploys the agent to Bedrock AgentCore Runtime |
-| `frontend/api.py` | Flask API backend — bridges frontend to AgentCore Runtime |
-| `frontend/index.html` | Shopping assistant HTML interface |
-| `frontend/script.js` | Frontend JavaScript (chat, cart, product display) |
-| `frontend/styles.css` | Frontend styling |
-| `frontend/requirements.txt` | Python dependencies for the frontend (Flask) |
+- **AWS account** with permissions for CloudFormation, EC2, VPC, IAM, Bedrock, AgentCore, OpenSearch, and SSM
+- **AWS CLI** configured with credentials
+- **Model Access in Amazon Bedrock:** Anthropic Claude Haiku 4.5 and Amazon Nova Multimodal Embeddings
 
 ## Setup Steps
 
 ### 1. Deploy the CloudFormation Stack
-
-**Option A: Create OpenSearch domain automatically (Recommended for demo)**
 
 ```bash
 aws cloudformation deploy \
@@ -119,112 +59,52 @@ aws cloudformation deploy \
   --region <your-region>
 ```
 
-Replace `<your-region>` with your desired AWS region (e.g., `us-east-1`, `us-west-2`, `eu-west-1`).
+**⏱️ Deployment Time:** ~20-35 minutes (includes OpenSearch domain creation)
 
-**Note:** The master username and password will be displayed in CloudFormation outputs for easy access to OpenSearch Dashboards during the demo.
-
-**Option B: Use existing OpenSearch domain**
-
-If you already have an OpenSearch domain:
+Once complete, get the stack outputs:
 
 ```bash
-aws cloudformation deploy \
-  --template-file cloudformation.yaml \
+aws cloudformation describe-stacks \
   --stack-name shopping-agent \
-  --parameter-overrides \
-      CreateOpenSearchDomain=false \
-      OpenSearchDomainName=<your-existing-domain-name> \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region <your-region>
+  --query 'Stacks[0].Outputs' \
+  --output table
 ```
 
-**Or create a domain manually first:**
+Note these values from the outputs: `InstanceId`, `OpenSearchDomainEndpoint`, `EC2RoleArn`, `OpenSearchBedrockEmbeddingRoleArn`, `AppURL`.
 
-```bash
-aws opensearch create-domain \
-  --domain-name os-test-domain \
-  --engine-version OpenSearch_3.5 \
-  --cluster-config InstanceType=t3.medium.search,InstanceCount=2 \
-  --ebs-options EBSEnabled=true,VolumeType=gp3,VolumeSize=20 \
-  --access-policies '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"es:*","Resource":"*"}]}' \
-  --region <your-region>
-```
+### 2. Connect to EC2 and Clone Repo
 
-### 2. CloudFormation Stack Components
-
-The CloudFormation template creates:
-
-- **OpenSearch Service domain** (optional - if `CreateOpenSearchDomain=true`)
-- **VPC** with 2 public subnets (for ALB) and 2 private subnets (for EC2)
-- **CloudFront Distribution** with VPC Origin for HTTPS access
-- **Amazon Cognito User Pool** with hosted UI login (self-signup disabled)
-- **Internal Application Load Balancer** in private subnets
-- **NAT Gateway** for outbound internet connectivity from private subnet
-- **EC2 instance** in private subnet with Python 3.11, Node.js 20, AgentCore CLI, git, and all dependencies
-- **Security Groups** configured for CloudFront VPC Origin → ALB → EC2 on port 8501
-- **EC2 instance role** with permissions for Bedrock, AgentCore, ECR, OpenSearch
-- **OpenSearchBedrockEmbeddingRole** for OpenSearch to invoke Bedrock embeddings
-
-**⏱️ Deployment Time:**
-- Without OpenSearch: ~5-10 minutes
-- With OpenSearch: ~20-35 minutes (domain creation is slow)
-
-> **Alternative:** If you prefer not to use CloudFormation, install Python 3.11 locally,
-> run `pip install -r requirements.txt`, and create the IAM roles manually as described in the blog post.
-
-### 2. Connect to the EC2 Instance
-
-#### Connect to EC2 Instance
-
-Connect to the instance via SSM Session Manager. The instance ID is in the stack outputs.
+Connect via SSM Session Manager:
 
 ```bash
 aws ssm start-session --target <instance-id> --region <your-region>
 ```
 
-Switch to root using sudo:
-
 ```bash
 sudo su
-# or
-sudo bash
-```
-
-Python 3.11 and all pip dependencies are already installed. Create a working directory and clone this repo:
-
-```bash
-mkdir -p ~/shopping-agent
 cd ~/shopping-agent
 git clone <your-repo-url> .
 ```
 
-### 3. Create ML Connector and Map BedrockEmbeddingRole
+Python 3.11, Node.js 20, AgentCore CLI, and uv are pre-installed on the instance.
 
-First, map the BedrockEmbeddingRole and EC2 Instance Role in OpenSearch Dashboards (required for OpenSearch to invoke Bedrock):
+### 3. Configure OpenSearch Security
 
-1. Open OpenSearch Dashboards → Security → Roles → **ml_full_access**
-2. Click **Mapped Users** → **Manage Mapping**
-3. Under **Backend roles**, add the BedrockEmbeddingRole ARN from stack outputs:
-   `arn:aws:iam::<ACCOUNT_ID>:role/OpenSearchBedrockEmbeddingRole-<REGION>` and EC2RoleARN from stack outputs:
-   `arn:aws:iam::<ACCOUNT_ID>:role/shopping-agent-EC2Role`
+Open OpenSearch Dashboards (endpoint from stack outputs) and log in with admin credentials.
 
-Then, edit `create_connector.py` and set `host`, `region`, and `account_id`, then run:
+#### 3a. Map Embedding Role to `ml_full_access`
 
-```bash
-python3.11 create_connector.py
-```
+1. **Security** → **Roles** → **`ml_full_access`** → **Mapped users** → **Manage mapping**
+2. Under **Backend roles**, add:
+   - `arn:aws:iam::<ACCOUNT_ID>:role/OpenSearchBedrockEmbeddingRole-<REGION>`
+   - `arn:aws:iam::<ACCOUNT_ID>:role/shopping-agent-EC2Role`
+3. Click **Map**
 
-Note the `connector_id` from the output.
+#### 3b. Create `shopping_agent_setup` Role
 
-### 3b. Configure OpenSearch Security for Setup Operations
-
-Before registering models and creating ingest pipelines, the `admin` master user needs additional permissions. OpenSearch fine-grained access control does not grant ML or ingest pipeline permissions by default.
-
-#### Create a Custom Role
-
-1. In OpenSearch Dashboards, go to **Security** → **Roles** → **Create role**
+1. **Security** → **Roles** → **Create role**
 2. **Name:** `shopping_agent_setup`
-3. **Cluster permissions** — add these individually:
+3. **Cluster permissions** — add individually:
    ```
    cluster:admin/ingest/pipeline/put
    cluster:admin/ingest/pipeline/get
@@ -241,9 +121,7 @@ Before registering models and creating ingest pipelines, the `admin` master user
    cluster:monitor/nodes/info
    cluster:monitor/health
    ```
-4. **Index permissions:**
-   - Index patterns: `*`
-   - Allowed actions — add these individually:
+4. **Index permissions** — index patterns: `*`, add individually:
    ```
    indices:admin/create
    indices:admin/delete
@@ -254,201 +132,127 @@ Before registering models and creating ingest pipelines, the `admin` master user
    indices:data/read/search
    indices:data/read/get
    ```
-5. Click **Create**
-
-#### Map the Admin User to the Role
-
-1. Go to **Security** → **Roles** → **`shopping_agent_setup`** → **Mapped users**
-2. Click **Manage mapping**
-3. Under **Users**, add: `admin`
-4. Click **Map**
+5. **Create**, then **Mapped users** → **Manage mapping** → add `admin` under **Users** → **Map**
 
 > **Note:** Wildcard permissions (e.g., `cluster:admin/opensearch/ml/*`) are not supported in all OpenSearch versions. Use explicit permissions as listed above.
 
-### 4. Register and Deploy Model (OpenSearch Dashboards)
+#### 3c. Create `agent-permissions` Role
 
-Follow the commands in `opensearch_setup.md` using OpenSearch Dashboards Dev Tools:
-- Create a model group
-- Register the model with your connector_id
-- Deploy the model
-
-### 5. Create Pipeline, Index, and Ingest Data (OpenSearch Dashboards)
-
-Continue with the remaining commands in `opensearch_setup.md`:
-- Create the ingest pipeline
-- Create the product index
-- Ingest sample data
-- Test with a query
-
-### 6. Configure OpenSearch Security for Agent and Test Locally
-
-#### Create the `agent-permissions` Role
-
-In OpenSearch Dashboards, create a role that allows the agent to search products and invoke the ML model:
-
-1. Go to **Security** → **Roles** → **Create role**
-2. **Role name:** `agent-permissions`
-3. **Cluster permissions** — add:
+1. **Security** → **Roles** → **Create role**
+2. **Name:** `agent-permissions`
+3. **Cluster permissions:**
    - `cluster:admin/opensearch/ml/models/get`
    - `cluster:admin/opensearch/ml/predict`
-4. **Index permissions:**
-   - Index patterns: `product*`
-   - Allowed actions: `indices:data/read/search`, `indices:data/read/get`
-5. Click **Create**
+4. **Index permissions** — index patterns: `product*`:
+   - `indices:data/read/search`
+   - `indices:data/read/get`
+5. **Create**, then **Mapped users** → **Manage mapping**
+6. Under **Backend roles**, add: `arn:aws:iam::<ACCOUNT_ID>:role/shopping-agent-EC2Role`
+7. Click **Map**
 
-#### Map IAM Principals to the Role
+### 4. Create ML Connector
 
-1. Click on the newly created `agent-permissions` role
-2. Go to the **Mapped users** tab → **Manage mapping**
-3. Under **Backend roles**, add:
-   - EC2 instance role ARN: `arn:aws:iam::<ACCOUNT_ID>:role/shopping-agent-EC2Role`
-4. Under **Users**, add any IAM users that will run the agent locally for testing:
-   - `arn:aws:iam::<ACCOUNT_ID>:user/<YourIAMUser>`
-5. Click **Map**
-
-#### Test the Agent Locally
-
-Edit `search_agent.py` and set `host`, `region`, and `model_id` in the `search_products` function.
-
-> **Important:** The `model_id` inside `search_products` must be your **OpenSearch embedding model ID** (from Step 4), NOT the Claude/Bedrock LLM model ID used for the agent.
-
-For local testing, uncomment the test line and comment `app.run()`:
-
-```python
-strands_agent_bedrock({"prompt": "Search jacket"})  # Uncomment for testing
-# app.run()  # Comment for testing
-```
+Edit `create_connector.py` and set `host`, `region`, and `account_id`, then run:
 
 ```bash
-python3.11 search_agent.py
+python3.11 create_connector.py
 ```
 
-### 8. Deploy to AgentCore Runtime
+Note the `connector_id` from the output.
 
-1. Create the AgentCore project and replace with your search agent:
+### 5. Set Up ML Pipeline (OpenSearch Dashboards)
 
-   ```bash
-   cd ~/shopping-agent
-   agentcore create --name ShoppingAgent --defaults
-   cd ShoppingAgent
-   cp ../search_agent.py app/ShoppingAgent/main.py
-   ```
+Follow the commands in [`opensearch_setup.md`](opensearch_setup.md) using OpenSearch Dashboards **Dev Tools**:
 
-2. Add OpenSearch and other dependencies:
+1. Create a model group
+2. Register the model with your `connector_id`
+3. Deploy the model
+4. Create the ingest pipeline
+5. Create the product index
+6. Ingest sample data
+7. Test with a neural search query
 
-   ```bash
-   cd app/ShoppingAgent
-   uv add opensearch-py requests-aws4auth boto3
-   cd ../..
-   ```
+### 6. Deploy Agent to AgentCore Runtime
 
-3. Deploy (takes approximately 5-10 minutes):
+```bash
+cd ~/shopping-agent
+agentcore create --name ShoppingAgent --defaults
+cd ShoppingAgent
+cp ../search_agent.py app/ShoppingAgent/main.py
+```
 
-   ```bash
-   agentcore deploy
-   ```
+Add dependencies:
 
-4. Verify deployment and note the Runtime ARN:
+```bash
+cd app/ShoppingAgent
+uv add opensearch-py requests-aws4auth boto3
+cd ../..
+```
 
-   ```bash
-   agentcore status
-   ```
+Deploy (~5-10 minutes):
 
-   You should see:
-   ```
-   ShoppingAgent: Deployed - Runtime: READY (arn:aws:bedrock-agentcore:<REGION>:<ACCOUNT_ID>:runtime/ShoppingAgent_...)
-   URL: https://bedrock-agentcore.<REGION>.amazonaws.com/runtimes/.../invocations
-   ```
+```bash
+agentcore deploy
+```
 
-   **Save the Runtime ARN** — you'll need it for the frontend configuration.
+Verify:
 
-### 9. Map AgentCore Execution Role in OpenSearch
+```bash
+agentcore status
+```
 
-The AgentCore CLI creates an execution role automatically. Map it in OpenSearch so the deployed agent can query your product index.
+**Save the Runtime ARN** from the output.
+
+### 7. Map AgentCore Execution Role in OpenSearch
 
 1. Find the execution role: **IAM Console** → **Roles** → search for `BedrockAgentCore`
-2. Copy the execution role ARN
-3. Go to **Security** → **Roles** → **`agent-permissions`** → **Mapped users** → **Manage mapping**
-4. Under **Backend roles**, add the execution role ARN from step 1
+2. Copy the role ARN
+3. **OpenSearch Dashboards** → **Security** → **Roles** → **`agent-permissions`** → **Mapped users** → **Manage mapping**
+4. Under **Backend roles**, add the execution role ARN
 5. Click **Map**
 
-### 10. Run the Frontend
-
-After deploying the agent, configure and run the shopping assistant frontend on the EC2 instance.
-
-#### Install Frontend Dependencies
+### 8. Run the Frontend
 
 ```bash
 cd ~/shopping-agent/frontend
 pip3.11 install -r requirements.txt
 ```
 
-#### Configure the App
-
-Edit `frontend/api.py` using `nano` (or `vi`):
-
-```bash
-nano api.py
-```
-
-Set the following values (then save with `Ctrl+O`, exit with `Ctrl+X`):
+Edit `api.py` — set `REGION` and `AGENT_RUNTIME_ARN` (from `agentcore status` output):
 
 ```python
 REGION = "us-east-1"  # Your AWS region
-AGENT_RUNTIME_ARN = "arn:aws:bedrock-agentcore:us-east-1:<ACCOUNT_ID>:runtime/<AGENT_NAME>"  # From agentcore status output
+AGENT_RUNTIME_ARN = "arn:aws:bedrock-agentcore:us-east-1:<ACCOUNT_ID>:runtime/<AGENT_NAME>"
 ```
 
-> **⚠️ Important:** The `AGENT_RUNTIME_ARN` must be the **runtime ARN only** — do NOT include `/runtime-endpoint` or `/runtime-endpoint/DEFAULT` at the end. The correct format is:
-> ```
-> arn:aws:bedrock-agentcore:<REGION>:<ACCOUNT_ID>:runtime/<AGENT_ID>
-> ```
-
-#### Start the Frontend
-
-Run the app on port 8501 (to match the ALB target group), binding to all interfaces:
+Start the app:
 
 ```bash
-python3.11 api.py
-```
-
-**Tip**: To run in the background, use:
-```bash
-nohup python3.11 api.py > api.log 2>&1 &
+nohup python3.11 api.py > ~/api.log 2>&1 &
 ```
 
 #### Access the Application
 
-Get the CloudFront URL from CloudFormation stack outputs:
+Open the `AppURL` from CloudFormation outputs in your browser. You will be redirected to the **Cognito login page**.
+
+Create a user (from your laptop or EC2):
 
 ```bash
-aws cloudformation describe-stacks \
-  --stack-name shopping-agent \
-  --query 'Stacks[0].Outputs[?OutputKey==`AppURL`].OutputValue' \
-  --output text
+aws cognito-idp admin-create-user \
+  --user-pool-id <POOL_ID> \
+  --username user@example.com \
+  --temporary-password "TempPass1!" \
+  --user-attributes Name=email,Value=user@example.com Name=email_verified,Value=true
+
+aws cognito-idp admin-set-user-password \
+  --user-pool-id <POOL_ID> \
+  --username user@example.com \
+  --password "YourPassword1!" \
+  --permanent
 ```
-
-Open the URL in your browser: `https://<cloudfront-domain>`
-
-You will be redirected to the **Cognito login page**. Use the credentials created by your administrator.
-
-> **Note:** Users are created via the Cognito console or CLI — self-signup is disabled. To create a user:
-> ```bash
-> aws cognito-idp admin-create-user \
->   --user-pool-id <POOL_ID> \
->   --username user@example.com \
->   --temporary-password "TempPass1!" \
->   --user-attributes Name=email,Value=user@example.com Name=email_verified,Value=true
->
-> aws cognito-idp admin-set-user-password \
->   --user-pool-id <POOL_ID> \
->   --username user@example.com \
->   --password "YourPassword1!" \
->   --permanent
-> ```
 
 #### Try These Sample Queries
 
-Once logged in, try asking:
 - "Search for jackets under $50"
 - "Find men's clothing"
 - "Show me jewelry"
@@ -459,32 +263,21 @@ Once logged in, try asking:
 
 ## Cleanup
 
-To avoid incurring future charges, delete resources in this order:
-
-1. **Stop the frontend app** (if running) on the EC2 instance
-2. **Delete the AgentCore Runtime**:
+1. **Delete the AgentCore Runtime:**
    ```bash
-   cd ShoppingAgent
+   cd ~/shopping-agent/ShoppingAgent
    agentcore remove all
    agentcore deploy
    ```
-3. **Delete the CloudFormation stack**:
+
+2. **Delete the CloudFormation stack:**
    ```bash
-   aws cloudformation delete-stack --stack-name shopping-agent
+   aws cloudformation delete-stack --stack-name shopping-agent --region <your-region>
    ```
 
-The CloudFormation stack deletion will automatically remove:
-- **OpenSearch Service domain** (if created by the stack) - takes 15-30 minutes
-- Application Load Balancer and Target Group
-- EC2 instance and associated resources
-- VPC, subnets, NAT Gateway, and Internet Gateway
-- Security Groups
-- IAM roles and policies (EC2 role and OpenSearch embedding role)
+The stack deletion removes all resources (OpenSearch, VPC, EC2, ALB, NAT Gateway, IAM roles). Takes ~20-40 minutes.
 
-**Note**: 
-- If you created the OpenSearch domain manually (outside CloudFormation), you must delete it separately
-- NAT Gateway and OpenSearch domain incur the highest costs. Delete promptly when done testing.
-- Stack deletion may take 20-40 minutes if OpenSearch domain was created by CloudFormation
+> **Note:** NAT Gateway and OpenSearch domain incur the highest costs. Delete promptly when done testing.
 
 ## License
 
