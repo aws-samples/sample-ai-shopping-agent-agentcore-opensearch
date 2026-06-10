@@ -208,14 +208,18 @@ Edit `search_agent.py` and set `host`, `region`, and `model_id` in the `search_p
 
 #### Test Locally
 
-```bash
-python3.11 -c "
-from search_agent import strands_agent_bedrock
-strands_agent_bedrock({'prompt': 'Search jacket'})
-"
+Uncomment the test line at the bottom of `search_agent.py` and comment `app.run()`:
+
+```python
+strands_agent_bedrock({"prompt": "Search jacket"})  # Uncomment for testing
+# app.run()  # Comment for testing
 ```
 
-You should see product results from your OpenSearch index.
+```bash
+python3.11 search_agent.py
+```
+
+You should see product results from your OpenSearch index. After testing, revert the changes (comment test line, uncomment `app.run()`).
 
 #### Deploy to AgentCore
 
