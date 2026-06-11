@@ -284,7 +284,7 @@ nohup python3.11 api.py > ~/api.log 2>&1 &
 
 Open the `AppURL` from CloudFormation outputs in your browser. You will be redirected to the **Cognito login page**.
 
-Create a user (from your laptop or EC2):
+Create a user (from your local terminal, not EC2):
 
 ```bash
 aws cognito-idp admin-create-user \
