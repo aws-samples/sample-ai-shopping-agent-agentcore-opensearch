@@ -328,10 +328,6 @@ The stack deletion removes all resources (OpenSearch, VPC, EC2, ALB, NAT Gateway
 
 > **Note:** NAT Gateway and OpenSearch domain incur the highest costs. Delete promptly when done testing.
 
-## License
-
-This library is licensed under the MIT-0 License. See the [LICENSE](LICENSE) file.
-
 ## Authors
 
 - Omama Khurshid — GTM Specialist Solutions Architect Analytics, AWS
