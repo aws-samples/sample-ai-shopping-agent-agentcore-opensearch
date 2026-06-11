@@ -130,7 +130,6 @@ Open OpenSearch Dashboards (endpoint from stack outputs) and log in with admin c
    cluster:admin/opensearch/ml/deploy_model
    cluster:admin/opensearch/ml/predict
    cluster:admin/opensearch/ml/undeploy_model
-   cluster:admin/opensearch/ml/delete_model
    cluster:admin/opensearch/ml/delete_connector
    cluster:admin/opensearch/ml/models/get
    cluster:monitor/nodes/info
