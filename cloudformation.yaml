@@ -309,8 +309,8 @@ Resources:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          CidrIp: !Ref VpcCidr
-          Description: HTTP access from CloudFront VPC Origin ENIs (within VPC)
+          SourcePrefixListId: pl-3b927c52
+          Description: HTTP access from CloudFront managed prefix list
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-alb-sg
@@ -469,6 +469,13 @@ Resources:
                   - !Sub arn:aws:iam::${AWS::AccountId}:role/AmazonBedrockAgentCoreSDKRuntime-*
                   - !Sub arn:aws:iam::${AWS::AccountId}:role/AmazonBedrockAgentCoreSDKCodeBuild-*
                   - !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/runtime-identity.bedrock-agentcore.amazonaws.com/AWSServiceRoleForBedrockAgentCoreRuntimeIdentity
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/cdk-hnb659fds-*
+              - Sid: AssumeRoleCDK
+                Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/cdk-hnb659fds-*
               - Sid: CloudWatchLogsAccess
                 Effect: Allow
                 Action:
@@ -497,6 +504,24 @@ Resources:
                 Resource:
                   - !Sub arn:aws:s3:::bedrock-agentcore-codebuild-sources-${AWS::AccountId}-*
                   - !Sub arn:aws:s3:::bedrock-agentcore-codebuild-sources-${AWS::AccountId}-*/*
+              - Sid: CloudFormationDescribeStacks
+                Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:ListStacks
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:GetTemplate
+                  - cloudformation:CreateStack
+                  - cloudformation:UpdateStack
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:GetTemplateSummary
+                Resource:
+                  - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/AgentCore-*
+                  - !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/CDKToolkit/*
 
         - PolicyName: OpenSearchAccess
           PolicyDocument:
@@ -577,7 +602,7 @@ Resources:
     CreationPolicy:
       ResourceSignal:
         Count: 1
-        Timeout: PT15M
+        Timeout: PT25M
     Metadata:
       AWS::CloudFormation::Init:
         configSets:
@@ -868,6 +893,14 @@ Outputs:
   CognitoUserPoolId:
     Description: Cognito User Pool ID (create users here)
     Value: !Ref CognitoUserPool
+
+  CognitoDomain:
+    Description: Cognito domain (use in frontend index.html COGNITO_DOMAIN)
+    Value: !Sub ${AWS::StackName}-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com
+
+  CognitoClientId:
+    Description: Cognito App Client ID (use in frontend index.html CLIENT_ID)
+    Value: !Ref CognitoUserPoolClient
 
   CognitoLoginURL:
     Description: Cognito Hosted UI login URL

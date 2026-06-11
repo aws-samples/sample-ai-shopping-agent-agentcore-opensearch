@@ -10,8 +10,8 @@
     <script>
         // Cognito Auth - redirect to login if no token
         (function() {
-            const COGNITO_DOMAIN = 'shopping-agent-test-591313757416.auth.us-east-1.amazoncognito.com';
-            const CLIENT_ID = 'm51orqjbpqp5bfb26duqkngbl';
+            const COGNITO_DOMAIN = '<COGNITO_DOMAIN>';  // e.g., 'shopping-agent-123456789012.auth.us-east-1.amazoncognito.com'
+            const CLIENT_ID = '<COGNITO_CLIENT_ID>';  // e.g., '5oaolum5754geggl2d0do489rn'
             const REDIRECT_URI = window.location.origin + '/';
 
             // Check for token in URL hash (after Cognito redirect)

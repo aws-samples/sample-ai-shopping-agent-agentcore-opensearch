@@ -7,6 +7,8 @@ and [Amazon OpenSearch Service](https://aws.amazon.com/opensearch-service/).
 
 **⚠️ IMPORTANT**: This is a sample application for demonstration and educational purposes only. It should not be used in production without additional security hardening.
 
+**⚠️ REGION**: This solution has only been tested in **us-east-1**. Amazon Nova Multimodal Embeddings is currently only available in us-east-1, so deploy the stack in that region.
+
 The agent performs semantic product search using natural language queries, powered by
 Amazon Nova Multimodal Embeddings for vector search and Anthropic Claude for response generation.
 
@@ -38,6 +40,7 @@ Amazon Nova Multimodal Embeddings for vector search and Anthropic Claude for res
 
 - **AWS account** with permissions for CloudFormation, EC2, VPC, IAM, Bedrock, AgentCore, OpenSearch, and SSM
 - **AWS CLI** configured with credentials
+- **CDK Bootstrap**: The AWS environment must be bootstrapped for CDK (`npx cdk bootstrap aws://<ACCOUNT_ID>/us-east-1`)
 - **Model Access in Amazon Bedrock:** Anthropic Claude Haiku 4.5 and Amazon Nova Multimodal Embeddings
 
 ## Setup Steps
@@ -56,7 +59,7 @@ aws cloudformation deploy \
       OpenSearchAdminUsername=admin \
       OpenSearchAdminPassword='YourSecurePassword123!' \
   --capabilities CAPABILITY_NAMED_IAM \
-  --region <your-region>
+  --region us-east-1
 ```
 
 **⏱️ Deployment Time:** ~20-35 minutes (includes OpenSearch domain creation)
@@ -73,7 +76,7 @@ aws cloudformation deploy \
       CreateOpenSearchDomain=false \
       OpenSearchDomainName=<your-existing-domain-name> \
   --capabilities CAPABILITY_NAMED_IAM \
-  --region <your-region>
+  --region us-east-1
 ```
 
 Once complete, get the stack outputs:
@@ -82,7 +85,8 @@ Once complete, get the stack outputs:
 aws cloudformation describe-stacks \
   --stack-name shopping-agent \
   --query 'Stacks[0].Outputs' \
-  --output table
+  --output table \
+  --region us-east-1
 ```
 
 Note these values from the outputs: `InstanceId`, `OpenSearchDomainEndpoint`, `EC2RoleArn`, `OpenSearchBedrockEmbeddingRoleArn`, `AppURL`.
@@ -92,7 +96,7 @@ Note these values from the outputs: `InstanceId`, `OpenSearchDomainEndpoint`, `E
 Connect via SSM Session Manager:
 
 ```bash
-aws ssm start-session --target <instance-id> --region <your-region>
+aws ssm start-session --target <instance-id> --region us-east-1
 ```
 
 ```bash
@@ -115,42 +119,7 @@ Open OpenSearch Dashboards (endpoint from stack outputs) and log in with admin c
    - `arn:aws:iam::<ACCOUNT_ID>:role/shopping-agent-EC2Role`
 3. Click **Map**
 
-#### 3b. Create `shopping_agent_setup` Role
-
-1. **Security** → **Roles** → **Create role**
-2. **Name:** `shopping_agent_setup`
-3. **Cluster permissions** — add individually:
-   ```
-   cluster:admin/ingest/pipeline/put
-   cluster:admin/ingest/pipeline/get
-   cluster:admin/ingest/pipeline/delete
-   cluster:admin/opensearch/ml/create_connector
-   cluster:admin/opensearch/ml/register_model_group
-   cluster:admin/opensearch/ml/register_model
-   cluster:admin/opensearch/ml/deploy_model
-   cluster:admin/opensearch/ml/predict
-   cluster:admin/opensearch/ml/undeploy_model
-   cluster:admin/opensearch/ml/delete_connector
-   cluster:admin/opensearch/ml/models/get
-   cluster:monitor/nodes/info
-   cluster:monitor/health
-   ```
-4. **Index permissions** — index patterns: `*`, add individually:
-   ```
-   indices:admin/create
-   indices:admin/delete
-   indices:admin/mapping/put
-   indices:data/write/index
-   indices:data/write/bulk
-   indices:data/write/delete
-   indices:data/read/search
-   indices:data/read/get
-   ```
-5. **Create**, then **Mapped users** → **Manage mapping** → add `admin` under **Users** → **Map**
-
-> **Note:** Wildcard permissions (e.g., `cluster:admin/opensearch/ml/*`) are not supported in all OpenSearch versions. Use explicit permissions as listed above.
-
-#### 3c. Create `agent-permissions` Role
+#### 3b. Create `agent-permissions` Role
 
 1. **Security** → **Roles** → **Create role**
 2. **Name:** `agent-permissions`
@@ -221,7 +190,6 @@ You should see product results from your OpenSearch index. After testing, revert
 #### Deploy to AgentCore
 
 ```bash
-cd ~/shopping-agent
 agentcore create --name ShoppingAgent --defaults
 cd ShoppingAgent
 cp ../search_agent.py app/ShoppingAgent/main.py
@@ -238,7 +206,7 @@ cd ../..
 Deploy (~5-10 minutes):
 
 ```bash
-agentcore deploy
+agentcore deploy --verbose
 ```
 
 Verify:
@@ -251,7 +219,7 @@ agentcore status
 
 ### 8. Map AgentCore Execution Role in OpenSearch
 
-1. Find the execution role: **IAM Console** → **Roles** → search for `BedrockAgentCore`
+1. Find the execution role: **IAM Console** → **Roles** → search for `AgentCore-ShoppingAgent`
 2. Copy the role ARN
 3. **OpenSearch Dashboards** → **Security** → **Roles** → **`agent-permissions`** → **Mapped users** → **Manage mapping**
 4. Under **Backend roles**, add the execution role ARN
@@ -262,7 +230,7 @@ agentcore status
 On the EC2 instance (via SSM session from Step 2):
 
 ```bash
-cd ~/shopping-agent/frontend
+cd ../frontend
 pip3.11 install -r requirements.txt
 ```
 
@@ -271,6 +239,13 @@ Edit `api.py` — set `REGION` and `AGENT_RUNTIME_ARN` (from `agentcore status` 
 ```python
 REGION = "us-east-1"  # Your AWS region
 AGENT_RUNTIME_ARN = "arn:aws:bedrock-agentcore:us-east-1:<ACCOUNT_ID>:runtime/<AGENT_NAME>"
+```
+
+Edit `index.html` — update the Cognito configuration at the top of the file with values from the CloudFormation stack outputs (`CognitoDomain` and `CognitoClientId`):
+
+```javascript
+const COGNITO_DOMAIN = '<CognitoDomain from stack outputs>';
+const CLIENT_ID = '<CognitoClientId from stack outputs>';
 ```
 
 Start the app:
@@ -283,20 +258,23 @@ nohup python3.11 api.py > ~/api.log 2>&1 &
 
 Open the `AppURL` from CloudFormation outputs in your browser. You will be redirected to the **Cognito login page**.
 
-Create a user (from your local terminal, not EC2):
+Create a user (from your local terminal, not EC2).
+Locate `CognitoUserPoolId` in the Outputs section of the deployed CloudFormation stack.
 
 ```bash
 aws cognito-idp admin-create-user \
   --user-pool-id <POOL_ID> \
   --username user@example.com \
-  --temporary-password "TempPass1!" \
-  --user-attributes Name=email,Value=user@example.com Name=email_verified,Value=true
+  --temporary-password 'TempPass1!' \
+  --user-attributes Name=email,Value=user@example.com Name=email_verified,Value=true \
+  --region us-east-1
 
 aws cognito-idp admin-set-user-password \
   --user-pool-id <POOL_ID> \
   --username user@example.com \
-  --password "YourPassword1!" \
-  --permanent
+  --password 'YourPassword1!' \
+  --permanent \
+  --region us-east-1
 ```
 
 #### Try These Sample Queries
@@ -320,7 +298,7 @@ aws cognito-idp admin-set-user-password \
 
 2. **Delete the CloudFormation stack:**
    ```bash
-   aws cloudformation delete-stack --stack-name shopping-agent --region <your-region>
+   aws cloudformation delete-stack --stack-name shopping-agent --region us-east-1
    ```
 
 The stack deletion removes all resources (OpenSearch, VPC, EC2, ALB, NAT Gateway, IAM roles). Takes ~20-40 minutes.
