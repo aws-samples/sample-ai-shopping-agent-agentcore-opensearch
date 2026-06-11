@@ -16,14 +16,12 @@ Amazon Nova Multimodal Embeddings for vector search and Anthropic Claude for res
 
 ### Data Flow
 
-1. User accesses the shopping assistant via CloudFront (HTTPS) and authenticates with Cognito
+1. User sends question via CloudFront (HTTPS), authenticates with Cognito
 2. CloudFront routes request via VPC Origin to internal ALB, then to EC2
-3. Frontend app (running on EC2) sends user queries to AgentCore Runtime
-4. AgentCore Runtime routes requests to the Strands Retail Agent
-5. Strands Agent processes the task and invokes the `search_products` tool
-6. OpenSearch Service performs semantic search using Amazon Nova embeddings
-7. Strands Agent uses Anthropic Claude to generate natural language responses
-8. Agent response is returned through the frontend interface
+3. Frontend app (EC2) invokes AgentCore Runtime API
+4. Strands Agent invokes `search_products` tool → OpenSearch performs semantic search (Nova embeddings via Bedrock)
+5. Strands Agent invokes Bedrock (Claude) to generate natural language response
+6. Agent response is returned to EC2, then to user via CloudFront
 
 ### Infrastructure Components
 
