@@ -117,7 +117,8 @@ Open OpenSearch Dashboards (endpoint from stack outputs) and log in with admin c
 2. Under **Backend roles**, add:
    - `arn:aws:iam::<ACCOUNT_ID>:role/OpenSearchBedrockEmbeddingRole-<REGION>`
    - `arn:aws:iam::<ACCOUNT_ID>:role/shopping-agent-EC2Role`
-3. Click **Map**
+3. Under **Users**, add your IAM user ARN (e.g., `arn:aws:iam::<ACCOUNT_ID>:user/<YOUR_IAM_USERNAME>`)
+4. Click **Map**
 
 #### 3b. Create `agent-permissions` Role
 
