@@ -306,7 +306,8 @@ aws cognito-idp admin-set-user-password \
 1. **Delete the AgentCore Runtime:**
    ```bash
    cd ~/shopping-agent/ShoppingAgent
-   agentcore deploy remove --verbose
+   agentcore remove all
+   agentcore deploy
    ```
 
 2. **Delete the CloudFormation stack:**
