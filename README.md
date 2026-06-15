@@ -244,7 +244,6 @@ agentcore status
 On the EC2 instance (via SSM session from Step 2):
 
 ```bash
-cd ../frontend
 pip3.11 install -r requirements.txt
 ```
 
