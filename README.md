@@ -132,7 +132,8 @@ Open OpenSearch Dashboards (endpoint from stack outputs) and log in with admin c
    - `indices:data/read/get`
 5. **Create**, then **Mapped users** → **Manage mapping**
 6. Under **Backend roles**, add: `arn:aws:iam::<ACCOUNT_ID>:role/shopping-agent-EC2Role`
-7. Click **Map**
+7. Under **Users**, add your IAM user ARN (e.g., `arn:aws:iam::<ACCOUNT_ID>:user/<YOUR_IAM_USERNAME>`)
+8. Click **Map**
 
 ### 4. Create ML Connector
 
