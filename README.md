@@ -120,6 +120,8 @@ Open OpenSearch Dashboards (endpoint from stack outputs) and log in with admin c
 3. Under **Users**, add your IAM user ARN (e.g., `arn:aws:iam::<ACCOUNT_ID>:user/<YOUR_IAM_USERNAME>`)
 4. Click **Map**
 
+> **Note:** Mapping your IAM user (step 3) is only required if you're running scripts locally. If you're running everything from the EC2 instance, the EC2 role is sufficient.
+
 #### 3b. Create `agent-permissions` Role
 
 1. **Security** → **Roles** → **Create role**
@@ -134,6 +136,8 @@ Open OpenSearch Dashboards (endpoint from stack outputs) and log in with admin c
 6. Under **Backend roles**, add: `arn:aws:iam::<ACCOUNT_ID>:role/shopping-agent-EC2Role`
 7. Under **Users**, add your IAM user ARN (e.g., `arn:aws:iam::<ACCOUNT_ID>:user/<YOUR_IAM_USERNAME>`)
 8. Click **Map**
+
+> **Note:** Mapping your IAM user (step 7) is only required if you're running scripts locally. If you're running everything from the EC2 instance, the EC2 role is sufficient.
 
 ### 4. Create ML Connector
 
