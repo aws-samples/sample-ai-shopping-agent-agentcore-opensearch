@@ -101,8 +101,8 @@ aws ssm start-session --target <instance-id> --region us-east-1
 
 ```bash
 sudo su
-cd ~/shopping-agent
-git clone <your-repo-url> .
+git clone <your-repo-url>
+cd sample-ai-shopping-agent-agentcore-opensearch/
 ```
 
 Python 3.11, Node.js 20, AgentCore CLI, and uv are pre-installed on the instance.
@@ -134,6 +134,14 @@ Open OpenSearch Dashboards (endpoint from stack outputs) and log in with admin c
 7. Click **Map**
 
 ### 4. Create ML Connector
+
+Create a virtual environment and install dependencies:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
 Edit `create_connector.py` and set `host`, `region`, and `account_id`, then run:
 
