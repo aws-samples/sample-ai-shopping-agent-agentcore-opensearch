@@ -42,6 +42,7 @@ Amazon Nova Multimodal Embeddings for vector search and Anthropic Claude for res
 - **AWS CLI** configured with credentials
 - **CDK Bootstrap**: The AWS environment must be bootstrapped for CDK (`npx cdk bootstrap aws://<ACCOUNT_ID>/us-east-1`)
 - **Model Access in Amazon Bedrock:** Anthropic Claude Haiku 4.5 and Amazon Nova Multimodal Embeddings
+- **VPC Block Public Access disabled**: Navigate to the **VPC Console** → scroll down to **Settings** in the left-hand menu → disable **Block public access**. This is required before deploying the stack.
 
 ## Setup Steps
 
